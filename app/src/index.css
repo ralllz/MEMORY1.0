@@ -1,0 +1,601 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 240 10% 3.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 240 10% 3.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 10% 3.9%;
+    --primary: 240 5.9% 10%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 240 4.8% 95.9%;
+    --secondary-foreground: 240 5.9% 10%;
+    --muted: 240 4.8% 95.9%;
+    --muted-foreground: 240 3.8% 46.1%;
+    --accent: 240 4.8% 95.9%;
+    --accent-foreground: 240 5.9% 10%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 5.9% 90%;
+    --input: 240 5.9% 90%;
+    --ring: 240 5.9% 10%;
+    --radius: 0.625rem;
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-primary: 240 5.9% 10%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 240 4.8% 95.9%;
+    --sidebar-accent-foreground: 240 5.9% 10%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+
+  .dark {
+    --background: 240 10% 3.9%;
+    --foreground: 0 0% 98%;
+    --card: 240 10% 3.9%;
+    --card-foreground: 0 0% 98%;
+    --popover: 240 10% 3.9%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 0 0% 98%;
+    --primary-foreground: 240 5.9% 10%;
+    --secondary: 240 3.7% 15.9%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 240 3.7% 15.9%;
+    --muted-foreground: 240 5% 64.9%;
+    --accent: 240 3.7% 15.9%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 3.7% 15.9%;
+    --input: 240 3.7% 15.9%;
+    --ring: 240 4.9% 83.9%;
+    --sidebar-background: 240 5.9% 10%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* Custom Animations */
+
+/* Love Theme Animations */
+@keyframes float-heart {
+  0%, 100% {
+    transform: translateY(0) rotate(0deg) scale(1);
+    opacity: 0.4;
+  }
+  50% {
+    transform: translateY(-20px) rotate(10deg) scale(1.1);
+    opacity: 0.7;
+  }
+}
+
+@keyframes paper-plane {
+  0% {
+    transform: translateX(-10%) translateY(0) rotate(0deg);
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  90% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(110vw) translateY(-50px) rotate(15deg);
+    opacity: 0;
+  }
+}
+
+@keyframes sparkle {
+  0%, 100% {
+    opacity: 0;
+    transform: scale(0);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Love Sea Theme Animations */
+@keyframes swim-left {
+  0% {
+    transform: translateX(100vw) scaleX(1);
+  }
+  100% {
+    transform: translateX(-100px) scaleX(1);
+  }
+}
+
+@keyframes swim-right {
+  0% {
+    transform: translateX(-100px) scaleX(-1);
+  }
+  100% {
+    transform: translateX(100vw) scaleX(-1);
+  }
+}
+
+@keyframes bubble-float {
+  0% {
+    transform: translateY(0) scale(1);
+    opacity: 0.6;
+  }
+  100% {
+    transform: translateY(-100vh) scale(0.5);
+    opacity: 0;
+  }
+}
+
+@keyframes wave {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  50% {
+    transform: translateX(-25%);
+  }
+}
+
+@keyframes wave-slow {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  50% {
+    transform: translateX(25%);
+  }
+}
+
+@keyframes sway {
+  0%, 100% {
+    transform: rotate(-5deg);
+  }
+  50% {
+    transform: rotate(5deg);
+  }
+}
+
+@keyframes love-bubble {
+  0% {
+    transform: scale(0) translateY(0);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1.5) translateY(-30px);
+    opacity: 0;
+  }
+}
+
+@keyframes bubble-pop {
+  0% {
+    transform: scale(0);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.2);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 0;
+  }
+}
+
+/* Sakura Theme Animations */
+@keyframes fall-sway {
+  0% {
+    transform: translateY(-100px) translateX(0) rotate(0deg);
+    opacity: 1;
+  }
+  25% {
+    transform: translateY(25vh) translateX(var(--sway-amount, 30px)) rotate(90deg);
+  }
+  50% {
+    transform: translateY(50vh) translateX(0) rotate(180deg);
+  }
+  75% {
+    transform: translateY(75vh) translateX(calc(var(--sway-amount, 30px) * -1)) rotate(270deg);
+  }
+  100% {
+    transform: translateY(100vh) translateX(0) rotate(360deg);
+    opacity: 0.3;
+  }
+}
+
+@keyframes tree-sway {
+  0%, 100% {
+    transform: rotate(-2deg);
+  }
+  50% {
+    transform: rotate(2deg);
+  }
+}
+
+@keyframes flower-glow {
+  0%, 100% {
+    opacity: 0.6;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.1);
+  }
+}
+
+@keyframes wind {
+  0% {
+    transform: translateX(-100%);
+    opacity: 0;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(200%);
+    opacity: 0;
+  }
+}
+
+@keyframes petal-stuck {
+  0%, 100% {
+    transform: rotate(-5deg);
+  }
+  50% {
+    transform: rotate(5deg);
+  }
+}
+
+/* Space Theme Animations */
+@keyframes twinkle {
+  0%, 100% {
+    opacity: 0.3;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.2);
+  }
+}
+
+@keyframes pulse-slow {
+  0%, 100% {
+    opacity: 0.3;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.6;
+    transform: scale(1.1);
+  }
+}
+
+@keyframes shooting-star {
+  0% {
+    transform: translateX(0) translateY(0);
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(100vw) translateY(50px);
+    opacity: 0;
+  }
+}
+
+@keyframes orbit {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+/* Cat Theme Animations */
+@keyframes cat-walk-left {
+  0% {
+    transform: translateX(100vw) scaleX(1);
+  }
+  100% {
+    transform: translateX(-100px) scaleX(1);
+  }
+}
+
+@keyframes cat-walk-right {
+  0% {
+    transform: translateX(-100px) scaleX(-1);
+  }
+  100% {
+    transform: translateX(100vw) scaleX(-1);
+  }
+}
+
+@keyframes scratch {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.3);
+    opacity: 0.8;
+  }
+}
+
+@keyframes scratch-text {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  25% {
+    transform: translateY(-2px);
+  }
+  75% {
+    transform: translateY(2px);
+  }
+}
+
+@keyframes zzz {
+  0%, 100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  50% {
+    transform: translateY(-10px);
+    opacity: 0.5;
+  }
+}
+
+@keyframes bounce-slow {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes float-fish {
+  0%, 100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-15px) rotate(5deg);
+  }
+}
+
+@keyframes fade-paw {
+  0%, 100% {
+    opacity: 0.1;
+  }
+  50% {
+    opacity: 0.3;
+  }
+}
+
+/* Original Theme Animations */
+@keyframes float-hex {
+  0%, 100% {
+    transform: translateY(0) rotate(0deg);
+    opacity: 0.05;
+  }
+  50% {
+    transform: translateY(-20px) rotate(10deg);
+    opacity: 0.1;
+  }
+}
+
+@keyframes float-circle {
+  0%, 100% {
+    transform: translateY(0) scale(1);
+    opacity: 0.1;
+  }
+  50% {
+    transform: translateY(-30px) scale(1.1);
+    opacity: 0.2;
+  }
+}
+
+@keyframes float-particle {
+  0%, 100% {
+    transform: translateY(0) translateX(0);
+    opacity: 0.3;
+  }
+  25% {
+    transform: translateY(-20px) translateX(10px);
+    opacity: 0.6;
+  }
+  50% {
+    transform: translateY(-10px) translateX(-10px);
+    opacity: 0.4;
+  }
+  75% {
+    transform: translateY(-30px) translateX(5px);
+    opacity: 0.5;
+  }
+}
+
+@keyframes ray {
+  0% {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  50% {
+    opacity: 0.3;
+  }
+  100% {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+}
+
+@keyframes pulse-line {
+  0%, 100% {
+    opacity: 0.2;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* Animation Classes */
+.animate-float-heart {
+  animation: float-heart 8s ease-in-out infinite;
+}
+
+.animate-paper-plane {
+  animation: paper-plane 15s linear infinite;
+}
+
+.animate-sparkle {
+  animation: sparkle 2s ease-in-out infinite;
+}
+
+.animate-swim-left {
+  animation: swim-left 20s linear infinite;
+}
+
+.animate-swim-right {
+  animation: swim-right 20s linear infinite;
+}
+
+.animate-bubble-float {
+  animation: bubble-float 10s ease-in infinite;
+}
+
+.animate-wave {
+  animation: wave 8s ease-in-out infinite;
+}
+
+.animate-wave-slow {
+  animation: wave-slow 10s ease-in-out infinite;
+}
+
+.animate-sway {
+  animation: sway 3s ease-in-out infinite;
+}
+
+.animate-love-bubble {
+  animation: love-bubble 1s ease-out forwards;
+}
+
+.animate-bubble-pop {
+  animation: bubble-pop 0.5s ease-out forwards;
+}
+
+.animate-fall-sway {
+  animation: fall-sway 12s linear infinite;
+}
+
+.animate-tree-sway {
+  animation: tree-sway 4s ease-in-out infinite;
+  transform-origin: bottom center;
+}
+
+.animate-flower-glow {
+  animation: flower-glow 2s ease-in-out infinite;
+}
+
+.animate-wind {
+  animation: wind 4s ease-in-out infinite;
+}
+
+.animate-petal-stuck {
+  animation: petal-stuck 3s ease-in-out infinite;
+}
+
+.animate-twinkle {
+  animation: twinkle 3s ease-in-out infinite;
+}
+
+.animate-pulse-slow {
+  animation: pulse-slow 4s ease-in-out infinite;
+}
+
+.animate-shooting-star {
+  animation: shooting-star 3s linear infinite;
+}
+
+.animate-orbit {
+  animation: orbit 20s linear infinite;
+}
+
+.animate-cat-walk-left {
+  animation: cat-walk-left 25s linear infinite;
+}
+
+.animate-cat-walk-right {
+  animation: cat-walk-right 25s linear infinite;
+}
+
+.animate-scratch {
+  animation: scratch 0.5s ease-in-out;
+}
+
+.animate-scratch-text {
+  animation: scratch-text 0.3s ease-in-out infinite;
+}
+
+.animate-zzz {
+  animation: zzz 2s ease-in-out infinite;
+}
+
+.animate-bounce-slow {
+  animation: bounce-slow 2s ease-in-out infinite;
+}
+
+.animate-float-fish {
+  animation: float-fish 3s ease-in-out infinite;
+}
+
+.animate-fade-paw {
+  animation: fade-paw 3s ease-in-out infinite;
+}
+
+.animate-float-hex {
+  animation: float-hex 6s ease-in-out infinite;
+}
+
+.animate-float-circle {
+  animation: float-circle 8s ease-in-out infinite;
+}
+
+.animate-float-particle {
+  animation: float-particle 10s ease-in-out infinite;
+}
+
+.animate-ray {
+  animation: ray 5s ease-in-out infinite;
+}
+
+.animate-pulse-line {
+  animation: pulse-line 3s ease-in-out infinite;
+}
+
+/* Scrollbar Hide */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* Gradient Radial */
+.bg-gradient-radial {
+  background: radial-gradient(circle at center, var(--tw-gradient-from), var(--tw-gradient-to));
+}
