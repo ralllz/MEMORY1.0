@@ -143,6 +143,7 @@ export function useMediaStorage() {
         }));
 
         // Callback ke App.tsx untuk save ke Supabase
+        // App.tsx akan menangani fetchFromSupabase() setelah insert berhasil
         if (onUploadComplete) {
           try {
             await Promise.resolve(onUploadComplete(url));
@@ -151,20 +152,17 @@ export function useMediaStorage() {
             console.error('Error saving to Supabase:', error);
           }
         }
-
-        // Fetch ulang dari Supabase setelah save berhasil
-        // Tunggu sedikit untuk memastikan Supabase transaction selesai
-        await new Promise(resolve => setTimeout(resolve, 500));
-        await fetchFromSupabase();
-        console.log('✅ Upload dan sinkronisasi selesai');
+        // Note: fetchFromSupabase() dipanggil di App.tsx handleAddMedia untuk menghindari race condition
 
         setCloudStatus('success');
         console.log('✅ Upload ke Cloudinary berhasil:', url);
+        // Set idle status setelah 2 detik
         setTimeout(() => setCloudStatus('idle'), 2000);
       })
       .catch(error => {
         console.error('Error uploading to Cloudinary:', error);
         setCloudStatus('error');
+        // Set idle status setelah 3 detik saat error
         setTimeout(() => setCloudStatus('idle'), 3000);
       });
 

@@ -54,8 +54,8 @@ function App() {
 
         console.log('✅ Tersimpan ke Supabase:', data?.[0]?.id);
         
-        // Tunggu sebentar untuk memastikan data tersinkronisasi
-        await new Promise(resolve => setTimeout(resolve, 500));
+        // Tunggu sedikit untuk memastikan Supabase transaction fully committed
+        await new Promise(resolve => setTimeout(resolve, 300));
         
         // Explicitly refresh data dari Supabase untuk memastikan UI ter-update
         await fetchFromSupabase();

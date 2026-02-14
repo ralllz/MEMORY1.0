@@ -47,8 +47,6 @@ export function YearSlider({
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    e.preventDefault();
-    
     const file = e.target.files?.[0];
     if (file && activeYearForAdd) {
       onAddMedia(activeYearForAdd, file);
@@ -62,15 +60,7 @@ export function YearSlider({
   const handleFileFormSubmit = (e: React.FormEvent) => {
     // Cegah halaman refresh/reload saat upload
     e.preventDefault();
-    
-    const file = fileInputRef.current?.files?.[0];
-    if (file && activeYearForAdd) {
-      onAddMedia(activeYearForAdd, file);
-      setActiveYearForAdd(null);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
-    }
+    // File upload ditangani di handleFileChange, jangan duplikasi di sini
   };
 
   const handleRemoveClick = (year: number, mediaId: string) => {
