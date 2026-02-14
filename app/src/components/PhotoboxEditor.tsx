@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { fabric } from 'fabric';
-import { X, Save } from 'lucide-react';
+import * as fabric from 'fabric';
+import { X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { PHOTOBOX_TEMPLATES } from '@/hooks/usePhotoboxEditor';
 
@@ -30,29 +30,33 @@ export function PhotoboxEditor({ sourceImage, onSave, onClose, isLoading }: Phot
     fabricCanvasRef.current = canvas;
 
     // Load source image
-    fabric.Image.fromURL(sourceImage, (img) => {
-      img.scaleToWidth(800);
-      img.set({
-        left: 0,
-        top: Math.max(0, (600 - img.getScaledHeight()) / 2),
-      });
-      canvas.add(img);
-      canvas.renderAll();
-    });
+    fabric.Image.fromURL(sourceImage, {
+      onLoaded: (img: any) => {
+        img.scaleToWidth(800);
+        img.set({
+          left: 0,
+          top: Math.max(0, (600 - img.getScaledHeight()) / 2),
+        });
+        canvas.add(img);
+        canvas.renderAll();
+      }
+    } as any);
 
     // Load template
     const templatePath = PHOTOBOX_TEMPLATES.find(t => t.id === selectedTemplate)?.path;
     if (templatePath) {
-      fabric.Image.fromURL(templatePath, (template) => {
-        template.scaleToWidth(800);
-        template.set({
-          left: 0,
-          top: 0,
-          selectable: true, // Allow user to interact
-        });
-        canvas.add(template);
-        canvas.renderAll();
-      });
+      fabric.Image.fromURL(templatePath, {
+        onLoaded: (template: any) => {
+          template.scaleToWidth(800);
+          template.set({
+            left: 0,
+            top: 0,
+            selectable: true, // Allow user to interact
+          });
+          canvas.add(template);
+          canvas.renderAll();
+        }
+      } as any);
     }
 
     return () => {
@@ -76,16 +80,18 @@ export function PhotoboxEditor({ sourceImage, onSave, onClose, isLoading }: Phot
     // Add new template
     const templatePath = PHOTOBOX_TEMPLATES.find(t => t.id === templateId)?.path;
     if (templatePath) {
-      fabric.Image.fromURL(templatePath, (template) => {
-        template.scaleToWidth(800);
-        template.set({
-          left: 0,
-          top: 0,
-          selectable: true,
-        });
-        canvas.add(template);
-        canvas.renderAll();
-      });
+      fabric.Image.fromURL(templatePath, {
+        onLoaded: (template: any) => {
+          template.scaleToWidth(800);
+          template.set({
+            left: 0,
+            top: 0,
+            selectable: true,
+          });
+          canvas.add(template);
+          canvas.renderAll();
+        }
+      } as any);
     }
   };
 
@@ -101,16 +107,21 @@ export function PhotoboxEditor({ sourceImage, onSave, onClose, isLoading }: Phot
       
       // Convert canvas to blob
       canvas.getElement().toBlob(
-        async (blob) => {
-          if (!blob) throw new Error('Failed to create blob');
-          
-          const templateName = PHOTOBOX_TEMPLATES.find(t => t.id === selectedTemplate)?.name || 'Unknown';
-          
-          console.log('📦 [PhotoboxEditor] Canvas exported, saving...');
-          await onSave(blob, templateName);
-          
-          setIsSaving(false);
-          onClose();
+        async (blob: Blob | null) => {
+          try {
+            if (!blob) throw new Error('Failed to create blob');
+            
+            const templateName = PHOTOBOX_TEMPLATES.find(t => t.id === selectedTemplate)?.name || 'Unknown';
+            
+            console.log('📦 [PhotoboxEditor] Canvas exported, saving...');
+            await onSave(blob, templateName);
+            
+            setIsSaving(false);
+            onClose();
+          } catch (error) {
+            console.error('❌ [PhotoboxEditor] Blob save error:', error);
+            setIsSaving(false);
+          }
         },
         'image/png',
         0.95

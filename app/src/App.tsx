@@ -148,7 +148,7 @@ function App() {
   }
 
   const allMedia = getAllMedia();
-  const authenticated = isAuthenticated();
+  const authenticated = isAuthenticated;
 
   return (
     <div className="min-h-screen relative overflow-x-hidden">
@@ -209,12 +209,12 @@ function App() {
             </div>
             
             {/* Photobox Button */}
-            {isAuthenticated && (
+            {isAuthenticated ? (
               <PhotoboxButton onSaveComplete={() => {
                 console.log('📸 [App] Photobox save complete, refreshing data...');
                 fetchFromSupabase();
               }} />
-            )}
+            ) : null}
           </div>
         </div>
 

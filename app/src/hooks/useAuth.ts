@@ -31,9 +31,7 @@ export function useAuth() {
     localStorage.removeItem('memory_user');
   }, []);
 
-  const isAuthenticated = useCallback(() => {
-    return user?.isLoggedIn === true;
-  }, [user]);
+  const isAuthenticated = user?.isLoggedIn === true;
 
   return {
     user,
