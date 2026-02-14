@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Camera, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { getOptimizedImageSettings } from '@/lib/cameraOptimization';
+import { getOptimizedImageSettings, getSimpleCameraConstraints, getFallbackCameraConstraints } from '@/lib/cameraOptimization';
 
 interface CameraCaptureProps {
   onCapture: (dataUrl: string) => void;
@@ -18,164 +18,94 @@ export function CameraCapture({ onCapture, onClose }: CameraCaptureProps) {
   const [cameraLoadTime, setCameraLoadTime] = useState<number>(0);
 
   useEffect(() => {
-    // Request camera permission with optimized constraints
-    let timeoutId: ReturnType<typeof setTimeout> | null = null;
-    let isMounted = true;
     let videoReadyTimeoutId: ReturnType<typeof setTimeout> | null = null;
+    let isMounted = true;
 
     const setupCamera = async () => {
       try {
         const startTime = performance.now();
-        console.log('📷 [Camera] Requesting camera permission...');
+        console.log('📷 [Camera] Requesting access...');
         
-        // Try different constraint combinations - from most specific to most general
-        const constraintsList = [
-          // Try 1: Basic camera request without specific resolution
-          {
-            video: true,
-            audio: false,
-          },
-          // Try 2: With backward camera preference
-          {
-            video: { facingMode: { ideal: 'environment' } },
-            audio: false,
-          },
-          // Try 3: With low resolution for compatibility
-          {
-            video: {
-              facingMode: { ideal: 'environment' },
-              width: { max: 640 },
-              height: { max: 480 },
-            },
-            audio: false,
-          },
-        ] as MediaStreamConstraints[];
-
         let stream: MediaStream | null = null;
-        let successConstraint = '';
-
-        for (let i = 0; i < constraintsList.length; i++) {
+        
+        // Try simple approach first
+        try {
+          console.log('📷 [Camera] Try 1: Basic video');
+          stream = await Promise.race([
+            navigator.mediaDevices.getUserMedia(getSimpleCameraConstraints()),
+            new Promise<never>((_, reject) =>
+              setTimeout(() => reject(new Error('timeout')), 5000)
+            ),
+          ]);
+          console.log(`✅ [Camera] Got stream`);
+        } catch (err1) {
+          // Fallback
+          console.log(`⚠️ [Camera] Try 2: With facingMode`);
           try {
-            console.log(`📷 [Camera] Attempt ${i + 1} of ${constraintsList.length}...`);
             stream = await Promise.race([
-              navigator.mediaDevices.getUserMedia(constraintsList[i]),
+              navigator.mediaDevices.getUserMedia(getFallbackCameraConstraints()),
               new Promise<never>((_, reject) =>
-                setTimeout(() => reject(new Error('getUserMedia timeout')), 5000)
+                setTimeout(() => reject(new Error('timeout')), 5000)
               ),
             ]);
-            successConstraint = `Attempt ${i + 1}`;
-            console.log(`✅ [Camera] SUCCESS with ${successConstraint}`);
-            break;
-          } catch (err) {
-            const errMsg = err instanceof Error ? err.message : 'Unknown error';
-            console.log(`⚠️  [Camera] Attempt ${i + 1} failed: ${errMsg}`);
-            continue;
+            console.log(`✅ [Camera] Got stream (fallback)`);
+          } catch (err2) {
+            throw err2;
           }
         }
 
         if (!stream) {
-          throw new Error('Unable to access camera with any configuration. Please check permissions.');
+          throw new Error('Failed to get camera stream');
         }
 
-        // Check if stream is actually active
+        // Check video track exists
         const videoTracks = stream.getVideoTracks();
         if (videoTracks.length === 0) {
-          throw new Error('Camera stream obtained but no video track available');
+          throw new Error('No video track available');
         }
 
-        console.log(`📹 [Camera] Got video track:`, {
-          enabled: videoTracks[0].enabled,
-          readyState: videoTracks[0].readyState,
-          width: videoTracks[0].getSettings?.().width,
-          height: videoTracks[0].getSettings?.().height,
-        });
+        console.log(`📹 [Camera] Track ready, attaching...`);
 
-        if (isMounted && videoRef.current) {
-          console.log('📹 [Camera] Attaching stream to video element...');
-          videoRef.current.srcObject = stream;
-          streamRef.current = stream;
-          
-          // Set permission immediately
-          setHasPermission(true);
-          
-          const loadTimeMs = performance.now() - startTime;
-          setCameraLoadTime(loadTimeMs);
-          console.log(`✅ [Camera] Stream attached (${loadTimeMs.toFixed(0)}ms)`);
+        if (!isMounted || !videoRef.current) {
+          stream.getTracks().forEach(t => t.stop());
+          return;
+        }
 
-          // Mark ready immediately if we can, with timeout fallback
-          // Some devices need a bit of time for first frame
-          const checkReady = () => {
-            const video = videoRef.current;
-            if (!video) {
-              console.log('⚠️ [Camera] Video element missing');
-              return false;
-            }
+        // Attach stream immediately
+        videoRef.current.srcObject = stream;
+        streamRef.current = stream;
+        
+        // Set permission immediately - video element will render frames
+        setHasPermission(true);
+        
+        const loadTimeMs = performance.now() - startTime;
+        setCameraLoadTime(loadTimeMs);
+        console.log(`✅ [Camera] Ready (${loadTimeMs.toFixed(0)}ms)`);
 
-            // Check multiple indicators
-            const hasVideoWidth = video.videoWidth > 0;
-            const hasVideoHeight = video.videoHeight > 0;
-            const hasReadyState = video.readyState >= 2;
-            const trackEnabled = videoTracks[0]?.enabled ?? false;
-
-            console.log(`🔍 [Camera] Readiness check:`, {
-              videoWidth: video.videoWidth,
-              videoHeight: video.videoHeight,
-              readyState: video.readyState,
-              trackEnabled,
-              paused: video.paused,
-            });
-
-            // If we have a stream with enabled track, consider it ready
-            // even if first frame hasn't arrived yet
-            if (trackEnabled && ((hasVideoWidth && hasVideoHeight) || hasReadyState)) {
-              console.log('✅ [Camera] Video ready - frames detected');
-              return true;
-            }
-
-            return false;
-          };
-
-          // Check immediately
-          if (checkReady()) {
-            if (isMounted) setVideoReady(true);
-          } else {
-            // If not ready immediately, wait up to 2 seconds with checks every 200ms
-            let attempts = 0;
-            const readyCheckInterval = setInterval(() => {
-              attempts++;
-              if (!isMounted) {
-                clearInterval(readyCheckInterval);
-                return;
-              }
-
-              if (checkReady()) {
-                clearInterval(readyCheckInterval);
-                setVideoReady(true);
-                console.log(`✅ [Camera] Ready after ${attempts * 200}ms`);
-              }
-
-              // Force ready after 10 attempts (2 seconds) max
-              if (attempts >= 10) {
-                clearInterval(readyCheckInterval);
-                console.log('⏱️ [Camera] Forcing ready after max attempts');
-                setVideoReady(true);
-              }
-            }, 200);
-
-            // Safety timeout
-            videoReadyTimeoutId = setTimeout(() => {
-              clearInterval(readyCheckInterval);
-              if (isMounted) {
-                console.log('⏱️ [Camera] Safety timeout - forcing ready');
-                setVideoReady(true);
-              }
-            }, 2500);
+        // Mark ready on first video event
+        const markReady = () => {
+          if (isMounted) {
+            console.log('✅ [Camera] Video streaming');
+            setVideoReady(true);
           }
-        }
+        };
+
+        const video = videoRef.current;
+        video.addEventListener('canplay', markReady, { once: true });
+        video.addEventListener('playing', markReady, { once: true });
+
+        // Fallback timeout (1.5s max wait)
+        videoReadyTimeoutId = setTimeout(() => {
+          if (isMounted) {
+            console.log('⏱️ [Camera] Forcing ready');
+            setVideoReady(true);
+          }
+        }, 1500);
+
       } catch (err) {
         if (isMounted) {
           console.error('❌ [Camera] Error:', err);
-          const message = err instanceof Error ? err.message : 'Failed to access camera';
+          const message = err instanceof Error ? err.message : 'Camera access failed';
           setError(message);
           setHasPermission(false);
         }
@@ -187,18 +117,16 @@ export function CameraCapture({ onCapture, onClose }: CameraCaptureProps) {
     return () => {
       isMounted = false;
       
-      // Cleanup
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(track => {
           track.stop();
-          console.log('🛑 [Camera] Stopped track:', track.kind);
+          console.log('🛑 [Camera] Stop');
         });
         streamRef.current = null;
       }
       if (videoRef.current) {
         videoRef.current.srcObject = null;
       }
-      if (timeoutId) clearTimeout(timeoutId);
       if (videoReadyTimeoutId) clearTimeout(videoReadyTimeoutId);
     };
   }, []);
