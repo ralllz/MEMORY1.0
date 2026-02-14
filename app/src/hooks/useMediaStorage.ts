@@ -14,6 +14,7 @@ const uploadToCloudinary = async (file: File): Promise<{ url: string; publicId: 
   const formData = new FormData();
   formData.append('file', file);
   formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
+  formData.append('resource_type', 'auto'); // Support video uploads
   
   try {
     const response = await fetch(CLOUDINARY_UPLOAD_URL, {
@@ -146,6 +147,11 @@ export function useMediaStorage() {
           onUploadComplete(url);
         }
 
+        // Fetch ulang dari Supabase setelah upload & save selesai
+        setTimeout(() => {
+          fetchFromSupabase();
+        }, 1000);
+
         setCloudStatus('success');
         console.log('✅ Upload ke Cloudinary berhasil:', url);
         setTimeout(() => setCloudStatus('idle'), 2000);
@@ -157,7 +163,7 @@ export function useMediaStorage() {
       });
 
     return placeholderMedia;
-  }, []);
+  }, [fetchFromSupabase]);
 
   const removeMedia = useCallback((year: number, mediaId: string) => {
     // Remove dari state immediately
@@ -167,8 +173,11 @@ export function useMediaStorage() {
       }
       return yd;
     }));
-    // Supabase DELETE akan di-handle oleh App.tsx
-  }, []);
+    // Fetch ulang dari Supabase setelah delete (di-handle oleh App.tsx)
+    setTimeout(() => {
+      fetchFromSupabase();
+    }, 500);
+  }, [fetchFromSupabase]);
 
   const getMediaByYear = useCallback((year: number): MediaItem[] => {
     return yearData.find(yd => yd.year === year)?.media || [];
