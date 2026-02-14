@@ -12,6 +12,7 @@ export interface CameraConstraintSet {
 /**
  * Get optimized camera constraints based on device capabilities
  * Tries multiple constraint sets to find the best fit for the device
+ * More aggressive approach: prefer speed over quality
  */
 export function getOptimizedCameraConstraints(): CameraConstraintSet[] {
   // Detect if device has limited bandwidth or processing power
@@ -26,29 +27,21 @@ export function getOptimizedCameraConstraints(): CameraConstraintSet[] {
 
 /**
  * Constraints optimized for low-end devices (slower processors, limited bandwidth)
+ * AGGRESSIVE: prefer speed and compatibility
  */
 function getLowEndDeviceConstraints(): CameraConstraintSet[] {
   return [
     {
-      label: 'Low-end optimized',
+      label: 'Low-end (minimal)',
       video: {
         facingMode: { ideal: 'environment' },
-        width: { ideal: 320, max: 640 },
-        height: { ideal: 240, max: 480 },
+        width: { max: 480 },
+        height: { max: 360 },
       },
       audio: false,
     },
     {
-      label: 'Minimal',
-      video: {
-        facingMode: { ideal: 'environment' },
-        width: { max: 640 },
-        height: { max: 480 },
-      },
-      audio: false,
-    },
-    {
-      label: 'Any available',
+      label: 'Any camera',
       video: { facingMode: { ideal: 'environment' } },
       audio: false,
     },
@@ -57,29 +50,21 @@ function getLowEndDeviceConstraints(): CameraConstraintSet[] {
 
 /**
  * Constraints optimized for standard devices
+ * AGGRESSIVE: try low res first for faster connection
  */
 function getStandardDeviceConstraints(): CameraConstraintSet[] {
   return [
     {
-      label: 'Optimized (640p)',
+      label: 'Fast (480p)',
       video: {
         facingMode: { ideal: 'environment' },
-        width: { ideal: 640, max: 1280 },
-        height: { ideal: 480, max: 720 },
+        width: { max: 640 },
+        height: { max: 480 },
       },
       audio: false,
     },
     {
-      label: 'Balanced',
-      video: {
-        facingMode: { ideal: 'environment' },
-        width: { max: 1280 },
-        height: { max: 720 },
-      },
-      audio: false,
-    },
-    {
-      label: 'Any available',
+      label: 'Any camera',
       video: { facingMode: { ideal: 'environment' } },
       audio: false,
     },

@@ -21,6 +21,7 @@ export function CameraCapture({ onCapture, onClose }: CameraCaptureProps) {
     // Request camera permission with optimized constraints
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
     let isMounted = true;
+    let pollIntervalId: ReturnType<typeof setInterval> | null = null;
 
     const setupCamera = async () => {
       try {
@@ -48,6 +49,7 @@ export function CameraCapture({ onCapture, onClose }: CameraCaptureProps) {
         }
 
         if (isMounted && videoRef.current) {
+          console.log('📹 [Camera] Setting video stream...');
           videoRef.current.srcObject = stream;
           streamRef.current = stream;
           
@@ -58,13 +60,51 @@ export function CameraCapture({ onCapture, onClose }: CameraCaptureProps) {
           setCameraLoadTime(loadTimeMs);
           console.log(`✅ [Camera] Permission granted, stream active (${loadTimeMs.toFixed(0)}ms)`);
           
-          // Fallback: if video doesn't load metadata, mark ready after timeout
+          // Poll for video readiness (checking if video has started rendering)
+          let checkCount = 0;
+          pollIntervalId = setInterval(() => {
+            checkCount++;
+            const video = videoRef.current;
+            
+            if (!video) {
+              console.log('⚠️ [Camera] Video element no longer available');
+              if (pollIntervalId) clearInterval(pollIntervalId);
+              return;
+            }
+
+            // Multiple ways to check if video is ready
+            const hasData = video.videoWidth > 0 && video.videoHeight > 0;
+            const isPlaying = !video.paused && !video.ended;
+            const readyState = video.readyState >= 2; // HAVE_CURRENT_DATA or better
+
+            console.log(`🔍 [Camera] Poll ${checkCount}: hasData=${hasData}, isPlaying=${isPlaying}, readyState=${video.readyState}`);
+
+            if (hasData || (isPlaying && readyState)) {
+              console.log('✅ [Camera] Video detected frames! Marking as ready');
+              if (isMounted) {
+                setVideoReady(true);
+              }
+              if (pollIntervalId) clearInterval(pollIntervalId);
+            }
+
+            // Max 20 checks (2 seconds with 100ms interval)
+            if (checkCount > 20) {
+              console.log('⏱️ [Camera] Timeout: marking video as ready after polling');
+              if (isMounted) {
+                setVideoReady(true);
+              }
+              if (pollIntervalId) clearInterval(pollIntervalId);
+            }
+          }, 100);
+
+          // Also set a hard timeout as last resort (3 seconds)
           timeoutId = setTimeout(() => {
-            if (isMounted) {
-              console.log('⏱️ [Camera] Fallback: marking video as ready after timeout');
+            if (isMounted && pollIntervalId) {
+              console.log('⏱️ [Camera] Hard timeout: forcing video ready');
+              clearInterval(pollIntervalId);
               setVideoReady(true);
             }
-          }, 2000);
+          }, 3000);
         }
       } catch (err) {
         if (isMounted) {
@@ -94,6 +134,9 @@ export function CameraCapture({ onCapture, onClose }: CameraCaptureProps) {
       }
       if (timeoutId) {
         clearTimeout(timeoutId);
+      }
+      if (pollIntervalId) {
+        clearInterval(pollIntervalId);
       }
     };
   }, []);
@@ -147,6 +190,18 @@ export function CameraCapture({ onCapture, onClose }: CameraCaptureProps) {
   // Handle when video can play
   const handleVideoCanPlay = () => {
     console.log('✅ [Camera] Video can play (onCanPlay)');
+    setVideoReady(true);
+  };
+
+  // Handle when video starts playing
+  const handleVideoPlay = () => {
+    console.log('✅ [Camera] Video playing (onPlay)');
+    setVideoReady(true);
+  };
+
+  // Handle loaded data
+  const handleLoadedData = () => {
+    console.log('✅ [Camera] Loaded data (onLoadedData)');
     setVideoReady(true);
   };
 
@@ -207,6 +262,8 @@ export function CameraCapture({ onCapture, onClose }: CameraCaptureProps) {
                   muted
                   onLoadedMetadata={handleVideoLoaded}
                   onCanPlay={handleVideoCanPlay}
+                  onPlay={handleVideoPlay}
+                  onLoadedData={handleLoadedData}
                   className="w-full aspect-video object-cover"
                   style={{
                     transform: 'scaleX(-1)',  // Mirror for selfie-like experience
