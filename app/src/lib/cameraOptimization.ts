@@ -1,40 +1,63 @@
 /**
- * Camera Optimization Utilities - SIMPLIFIED
- * Keep constraints minimal for faster camera initialization
+ * Fungsi SUPER SIMPEL untuk akses kamera
+ * Tidak ada logika kompleks, checking berlebihan, atau optimization yang tidak perlu
+ * Langsung request camera dan return streamnya!
  */
 
 /**
- * Get minimal camera constraints - let browser handle resolution
- * This is the FASTEST and most compatible approach
+ * Constraint standard - browser akan menggunakan resolusi optimal otomatis
  */
 export function getSimpleCameraConstraints(): MediaStreamConstraints {
   return {
-    video: true,  // Let browser auto-select resolution
+    video: true,
     audio: false,
   };
 }
 
 /**
- * Get fallback camera constraints if simple approach fails
+ * Fallback constraint jika yang pertama gagal
+ * Prefer back camera (environment)
  */
 export function getFallbackCameraConstraints(): MediaStreamConstraints {
   return {
-    video: { facingMode: { ideal: 'environment' } },
+    video: {
+      facingMode: 'environment',
+    },
     audio: false,
   };
 }
 
 /**
- * Optimized image capture settings based on canvas size
- * KEEP THIS - used by CameraCapture for photo quality
+ * Settings untuk quality saat capture foto
+ * Adjust berdasarkan ukuran video untuk hasil optimal
  */
-export function getOptimizedImageSettings(videoWidth: number, videoHeight: number) {
-  // Adaptive quality: lower res = higher quality, higher res = lower quality
-  const quality = Math.min(0.95, 0.85 + (Math.min(videoWidth, 640) / 1280) * 0.1);
+export interface ImageSettings {
+  quality: number;
+  maxWidth: number;
+}
 
-  return {
-    quality,
-    maxWidth: Math.min(videoWidth, 1920),
-    maxHeight: Math.min(videoHeight, 1080),
-  };
+export function getOptimizedImageSettings(videoWidth: number, _videoHeight: number): ImageSettings {
+  // Resolusi rendah = quality lebih tinggi (overhead kecil)
+  // Resolusi tinggi = quality sedang (buffer lebih besar)
+  
+  let quality = 0.85; // Default good quality
+  let maxWidth = 1280;
+
+  // Jika video sangat rendah (mobile 480p atau lebih kecil)
+  if (videoWidth <= 480) {
+    quality = 0.9; // Tinggi quality untuk hasil lebih sharp
+    maxWidth = 640;
+  }
+  // Jika video medium (720p)
+  else if (videoWidth <= 720) {
+    quality = 0.85;
+    maxWidth = 960;
+  }
+  // Jika video tinggi (1080p+)
+  else {
+    quality = 0.8; // Sedikit turun untuk ukuran file
+    maxWidth = 1280;
+  }
+
+  return { quality, maxWidth };
 }
