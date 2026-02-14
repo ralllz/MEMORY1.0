@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Camera, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { getOptimizedCameraConstraints, getOptimizedImageSettings } from '@/lib/cameraOptimization';
+import { getOptimizedImageSettings } from '@/lib/cameraOptimization';
 
 interface CameraCaptureProps {
   onCapture: (dataUrl: string) => void;
@@ -21,94 +21,160 @@ export function CameraCapture({ onCapture, onClose }: CameraCaptureProps) {
     // Request camera permission with optimized constraints
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
     let isMounted = true;
-    let pollIntervalId: ReturnType<typeof setInterval> | null = null;
+    let videoReadyTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
     const setupCamera = async () => {
       try {
         const startTime = performance.now();
         console.log('📷 [Camera] Requesting camera permission...');
         
-        // Get optimized constraint sets for this device
-        const constraintsList = getOptimizedCameraConstraints();
-        let stream: MediaStream | null = null;
+        // Try different constraint combinations - from most specific to most general
+        const constraintsList = [
+          // Try 1: Basic camera request without specific resolution
+          {
+            video: true,
+            audio: false,
+          },
+          // Try 2: With backward camera preference
+          {
+            video: { facingMode: { ideal: 'environment' } },
+            audio: false,
+          },
+          // Try 3: With low resolution for compatibility
+          {
+            video: {
+              facingMode: { ideal: 'environment' },
+              width: { max: 640 },
+              height: { max: 480 },
+            },
+            audio: false,
+          },
+        ] as MediaStreamConstraints[];
 
-        for (const constraintSet of constraintsList) {
+        let stream: MediaStream | null = null;
+        let successConstraint = '';
+
+        for (let i = 0; i < constraintsList.length; i++) {
           try {
-            console.log(`📷 [Camera] Trying constraint set: ${constraintSet.label}`);
-            stream = await navigator.mediaDevices.getUserMedia(constraintSet as MediaStreamConstraints);
-            console.log(`✅ [Camera] SUCCESS with: ${constraintSet.label}`);
+            console.log(`📷 [Camera] Attempt ${i + 1} of ${constraintsList.length}...`);
+            stream = await Promise.race([
+              navigator.mediaDevices.getUserMedia(constraintsList[i]),
+              new Promise<never>((_, reject) =>
+                setTimeout(() => reject(new Error('getUserMedia timeout')), 5000)
+              ),
+            ]);
+            successConstraint = `Attempt ${i + 1}`;
+            console.log(`✅ [Camera] SUCCESS with ${successConstraint}`);
             break;
           } catch (err) {
-            console.log(`⚠️  [Camera] Failed (${constraintSet.label}):`, (err as Error).message);
+            const errMsg = err instanceof Error ? err.message : 'Unknown error';
+            console.log(`⚠️  [Camera] Attempt ${i + 1} failed: ${errMsg}`);
             continue;
           }
         }
 
         if (!stream) {
-          throw new Error('No camera constraint worked - no camera available');
+          throw new Error('Unable to access camera with any configuration. Please check permissions.');
         }
 
+        // Check if stream is actually active
+        const videoTracks = stream.getVideoTracks();
+        if (videoTracks.length === 0) {
+          throw new Error('Camera stream obtained but no video track available');
+        }
+
+        console.log(`📹 [Camera] Got video track:`, {
+          enabled: videoTracks[0].enabled,
+          readyState: videoTracks[0].readyState,
+          width: videoTracks[0].getSettings?.().width,
+          height: videoTracks[0].getSettings?.().height,
+        });
+
         if (isMounted && videoRef.current) {
-          console.log('📹 [Camera] Setting video stream...');
+          console.log('📹 [Camera] Attaching stream to video element...');
           videoRef.current.srcObject = stream;
           streamRef.current = stream;
           
-          // Set permission immediately - video will show as soon as it's ready
+          // Set permission immediately
           setHasPermission(true);
           
           const loadTimeMs = performance.now() - startTime;
           setCameraLoadTime(loadTimeMs);
-          console.log(`✅ [Camera] Permission granted, stream active (${loadTimeMs.toFixed(0)}ms)`);
-          
-          // Poll for video readiness (checking if video has started rendering)
-          let checkCount = 0;
-          pollIntervalId = setInterval(() => {
-            checkCount++;
+          console.log(`✅ [Camera] Stream attached (${loadTimeMs.toFixed(0)}ms)`);
+
+          // Mark ready immediately if we can, with timeout fallback
+          // Some devices need a bit of time for first frame
+          const checkReady = () => {
             const video = videoRef.current;
-            
             if (!video) {
-              console.log('⚠️ [Camera] Video element no longer available');
-              if (pollIntervalId) clearInterval(pollIntervalId);
-              return;
+              console.log('⚠️ [Camera] Video element missing');
+              return false;
             }
 
-            // Multiple ways to check if video is ready
-            const hasData = video.videoWidth > 0 && video.videoHeight > 0;
-            const isPlaying = !video.paused && !video.ended;
-            const readyState = video.readyState >= 2; // HAVE_CURRENT_DATA or better
+            // Check multiple indicators
+            const hasVideoWidth = video.videoWidth > 0;
+            const hasVideoHeight = video.videoHeight > 0;
+            const hasReadyState = video.readyState >= 2;
+            const trackEnabled = videoTracks[0]?.enabled ?? false;
 
-            console.log(`🔍 [Camera] Poll ${checkCount}: hasData=${hasData}, isPlaying=${isPlaying}, readyState=${video.readyState}`);
+            console.log(`🔍 [Camera] Readiness check:`, {
+              videoWidth: video.videoWidth,
+              videoHeight: video.videoHeight,
+              readyState: video.readyState,
+              trackEnabled,
+              paused: video.paused,
+            });
 
-            if (hasData || (isPlaying && readyState)) {
-              console.log('✅ [Camera] Video detected frames! Marking as ready');
-              if (isMounted) {
+            // If we have a stream with enabled track, consider it ready
+            // even if first frame hasn't arrived yet
+            if (trackEnabled && ((hasVideoWidth && hasVideoHeight) || hasReadyState)) {
+              console.log('✅ [Camera] Video ready - frames detected');
+              return true;
+            }
+
+            return false;
+          };
+
+          // Check immediately
+          if (checkReady()) {
+            if (isMounted) setVideoReady(true);
+          } else {
+            // If not ready immediately, wait up to 2 seconds with checks every 200ms
+            let attempts = 0;
+            const readyCheckInterval = setInterval(() => {
+              attempts++;
+              if (!isMounted) {
+                clearInterval(readyCheckInterval);
+                return;
+              }
+
+              if (checkReady()) {
+                clearInterval(readyCheckInterval);
+                setVideoReady(true);
+                console.log(`✅ [Camera] Ready after ${attempts * 200}ms`);
+              }
+
+              // Force ready after 10 attempts (2 seconds) max
+              if (attempts >= 10) {
+                clearInterval(readyCheckInterval);
+                console.log('⏱️ [Camera] Forcing ready after max attempts');
                 setVideoReady(true);
               }
-              if (pollIntervalId) clearInterval(pollIntervalId);
-            }
+            }, 200);
 
-            // Max 20 checks (2 seconds with 100ms interval)
-            if (checkCount > 20) {
-              console.log('⏱️ [Camera] Timeout: marking video as ready after polling');
+            // Safety timeout
+            videoReadyTimeoutId = setTimeout(() => {
+              clearInterval(readyCheckInterval);
               if (isMounted) {
+                console.log('⏱️ [Camera] Safety timeout - forcing ready');
                 setVideoReady(true);
               }
-              if (pollIntervalId) clearInterval(pollIntervalId);
-            }
-          }, 100);
-
-          // Also set a hard timeout as last resort (3 seconds)
-          timeoutId = setTimeout(() => {
-            if (isMounted && pollIntervalId) {
-              console.log('⏱️ [Camera] Hard timeout: forcing video ready');
-              clearInterval(pollIntervalId);
-              setVideoReady(true);
-            }
-          }, 3000);
+            }, 2500);
+          }
         }
       } catch (err) {
         if (isMounted) {
-          console.error('❌ [Camera] Permission denied or error:', err);
+          console.error('❌ [Camera] Error:', err);
           const message = err instanceof Error ? err.message : 'Failed to access camera';
           setError(message);
           setHasPermission(false);
@@ -121,23 +187,19 @@ export function CameraCapture({ onCapture, onClose }: CameraCaptureProps) {
     return () => {
       isMounted = false;
       
-      // Cleanup: stop video stream properly
+      // Cleanup
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(track => {
           track.stop();
-          console.log('🛑 [Camera] Track stopped:', track.kind);
+          console.log('🛑 [Camera] Stopped track:', track.kind);
         });
         streamRef.current = null;
       }
       if (videoRef.current) {
         videoRef.current.srcObject = null;
       }
-      if (timeoutId) {
-        clearTimeout(timeoutId);
-      }
-      if (pollIntervalId) {
-        clearInterval(pollIntervalId);
-      }
+      if (timeoutId) clearTimeout(timeoutId);
+      if (videoReadyTimeoutId) clearTimeout(videoReadyTimeoutId);
     };
   }, []);
 
@@ -228,7 +290,8 @@ export function CameraCapture({ onCapture, onClose }: CameraCaptureProps) {
                 <Camera className="w-8 h-8 text-pink-500" />
               </div>
               <p className="text-gray-600 font-medium">Initializing camera...</p>
-              <p className="text-gray-500 text-sm mt-2">Please ensure camera permission is granted</p>
+              <p className="text-gray-500 text-sm mt-2">Requesting device access...</p>
+              <p className="text-gray-400 text-xs mt-4">This may take a few seconds</p>
             </div>
           )}
 
