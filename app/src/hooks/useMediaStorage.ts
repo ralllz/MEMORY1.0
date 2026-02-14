@@ -1,24 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { MediaItem, YearData } from '@/types';
+import { supabase } from '../supabaseClient';
 
 const YEARS = [2021, 2022, 2023, 2024, 2025, 2026];
-const METADATA_KEY = 'memory_metadata';
 
 // Cloudinary Configuration
 const CLOUDINARY_CLOUD_NAME = 'dfmieytqu';
 const CLOUDINARY_UPLOAD_PRESET = 'MEMORY_CLD';
 const CLOUDINARY_UPLOAD_URL = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`;
-
-interface StoredMediaMetadata {
-  id: string;
-  filename: string;
-  type: 'photo' | 'video';
-  year: number;
-  createdAt: string;
-  mimeType: string;
-  cloudinaryUrl: string; // URL dari Cloudinary
-  cloudinaryPublicId?: string; // Public ID untuk delete
-}
 
 // Upload file ke Cloudinary
 const uploadToCloudinary = async (file: File): Promise<{ url: string; publicId: string }> => {
@@ -52,68 +41,62 @@ const uploadToCloudinary = async (file: File): Promise<{ url: string; publicId: 
   }
 };
 
-const generateSampleMedia = (): YearData[] => {
-  return YEARS.map(year => ({
-    year,
-    media: [],
-  }));
-};
-
 export function useMediaStorage() {
   const [yearData, setYearData] = useState<YearData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [cloudStatus, setCloudStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
-  const [uploadCallbacks, setUploadCallbacks] = useState<Map<string, Function>>(new Map());
 
-  // Load metadata from localStorage on mount
-  useEffect(() => {
-    const loadMedia = async () => {
-      try {
-        const stored = localStorage.getItem(METADATA_KEY);
-        if (stored) {
-          try {
-            const metadata: StoredMediaMetadata[] = JSON.parse(stored);
-            const loadedYearData = generateSampleMedia();
+  // Fetch memories dari Supabase
+  const fetchFromSupabase = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const { data, error } = await supabase
+        .from('Memories')
+        .select('*')
+        .order('created_at', { ascending: false });
 
-            // Reconstruct media items dengan URL dari Cloudinary
-            for (const meta of metadata) {
-              const yearIdx = loadedYearData.findIndex(yd => yd.year === meta.year);
-              
-              if (yearIdx !== -1) {
-                loadedYearData[yearIdx].media.push({
-                  id: meta.id,
-                  type: meta.type,
-                  url: meta.cloudinaryUrl, // URL dari Cloudinary
-                  year: meta.year,
-                  createdAt: new Date(meta.createdAt),
-                });
-              }
-            }
-
-            setYearData(loadedYearData);
-          } catch (parseError) {
-            console.error('Error parsing metadata:', parseError);
-            localStorage.removeItem(METADATA_KEY);
-            setYearData(generateSampleMedia());
-          }
-        } else {
-          setYearData(generateSampleMedia());
-        }
-      } catch (error) {
-        console.error('Error loading media:', error);
-        setYearData(generateSampleMedia());
-      } finally {
-        setIsLoading(false);
+      if (error) {
+        console.error('Error fetching from Supabase:', error.message);
+        setYearData(YEARS.map(year => ({ year, media: [] })));
+        return;
       }
-    };
 
-    loadMedia();
+      if (!data) {
+        setYearData(YEARS.map(year => ({ year, media: [] })));
+        return;
+      }
+
+      // Transform Supabase data ke YearData format
+      const loadedYearData: YearData[] = YEARS.map(year => ({
+        year,
+        media: data
+          .filter(item => item.year === year)
+          .map(item => {
+            const fileType = item.file_type?.startsWith('video/') ? 'video' : 'photo';
+            return {
+              id: item.id.toString(),
+              type: fileType as 'video' | 'photo',
+              url: item.image_url,
+              year: item.year,
+              createdAt: new Date(item.created_at),
+            } as MediaItem;
+          }),
+      }));
+
+      setYearData(loadedYearData);
+      console.log('✅ Data loaded from Supabase:', data.length, 'items');
+    } catch (error) {
+      console.error('Error in fetchFromSupabase:', error);
+      setYearData(YEARS.map(year => ({ year, media: [] })));
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
 
-  // Register callback untuk ketika upload selesai
-  const registerUploadCallback = useCallback((mediaId: string, callback: (url: string) => void) => {
-    setUploadCallbacks(prev => new Map(prev).set(mediaId, callback));
-  }, []);
+  // Load data dari Supabase saat component mount
+  useEffect(() => {
+    fetchFromSupabase();
+  }, [fetchFromSupabase]);
 
   const addMedia = useCallback((year: number, file: File, onUploadComplete?: (url: string) => void): MediaItem => {
     const mediaId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -142,28 +125,7 @@ export function useMediaStorage() {
 
     // Upload to Cloudinary in background
     uploadToCloudinary(file)
-      .then(({ url, publicId }) => {
-        // Save metadata to localStorage
-        const stored = localStorage.getItem(METADATA_KEY);
-        const metadata: StoredMediaMetadata[] = stored ? JSON.parse(stored) : [];
-        metadata.push({
-          id: mediaId,
-          filename: file.name,
-          type: file.type.startsWith('video/') ? 'video' : 'photo',
-          year,
-          createdAt: new Date().toISOString(),
-          mimeType: file.type,
-          cloudinaryUrl: url,
-          cloudinaryPublicId: publicId,
-        });
-
-        try {
-          localStorage.setItem(METADATA_KEY, JSON.stringify(metadata));
-          console.log('✅ Metadata saved to localStorage');
-        } catch (error) {
-          console.error('Error saving metadata:', error);
-        }
-
+      .then(({ url }) => {
         // Update state dengan URL yang sebenarnya dari Cloudinary
         setYearData(prev => prev.map(yd => {
           if (yd.year === year) {
@@ -179,9 +141,8 @@ export function useMediaStorage() {
           return yd;
         }));
 
-        // Call registered callback
-        const callback = uploadCallbacks.get(mediaId);
-        if (callback && onUploadComplete) {
+        // Callback ke App.tsx untuk save ke Supabase
+        if (onUploadComplete) {
           onUploadComplete(url);
         }
 
@@ -196,32 +157,17 @@ export function useMediaStorage() {
       });
 
     return placeholderMedia;
-  }, [uploadCallbacks]);
+  }, []);
 
   const removeMedia = useCallback((year: number, mediaId: string) => {
-    // Get metadata untuk delete dari Cloudinary (optional)
-    const stored = localStorage.getItem(METADATA_KEY);
-    if (stored) {
-      try {
-        const metadata: StoredMediaMetadata[] = JSON.parse(stored);
-        
-        // TODO: Optionally delete dari Cloudinary jika ingin
-        // Require auth token untuk Cloudinary destroy API
-        
-        const filtered = metadata.filter(m => m.id !== mediaId);
-        localStorage.setItem(METADATA_KEY, JSON.stringify(filtered));
-        console.log('✅ Deleted from localStorage');
-      } catch (error) {
-        console.error('Error updating metadata:', error);
-      }
-    }
-
+    // Remove dari state immediately
     setYearData(prev => prev.map(yd => {
       if (yd.year === year) {
         return { ...yd, media: yd.media.filter(m => m.id !== mediaId) };
       }
       return yd;
     }));
+    // Supabase DELETE akan di-handle oleh App.tsx
   }, []);
 
   const getMediaByYear = useCallback((year: number): MediaItem[] => {
@@ -241,6 +187,5 @@ export function useMediaStorage() {
     isLoading,
     years: YEARS,
     cloudStatus,
-    registerUploadCallback,
   };
 }
