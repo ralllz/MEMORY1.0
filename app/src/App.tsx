@@ -16,7 +16,7 @@ import './App.css';
 
 function App() {
   const { user, login, logout, isAuthenticated, isLoading: authLoading } = useAuth();
-  const { addMedia, removeMedia, getMediaByYear, getAllMedia, years, isLoading: mediaLoading, cloudStatus } = useMediaStorage();
+  const { addMedia, removeMedia, getMediaByYear, getAllMedia, years, isLoading: mediaLoading, cloudStatus, fetchFromSupabase } = useMediaStorage();
   
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [selectedYear, setSelectedYear] = useState(2021);
@@ -28,8 +28,7 @@ function App() {
   }, [login]);
 
   const handleAddMedia = useCallback((year: number, file: File) => {
-    // Tambah ke local storage dan Cloudinary via useMediaStorage
-    // dengan callback onUploadComplete untuk save ke Supabase
+    // Tambah ke Cloudinary via useMediaStorage dengan callback onUploadComplete untuk save ke Supabase
     addMedia(year, file, async (cloudinaryUrl: string) => {
       // Ketika upload ke Cloudinary selesai, simpan ke Supabase
       setSavingToSupabase(true);
@@ -54,14 +53,20 @@ function App() {
         }
 
         console.log('✅ Tersimpan ke Supabase:', data?.[0]?.id);
-        // Note: fetchFromSupabase dari hook sudah dipanggil otomatis setelah save Supabase
+        
+        // Tunggu sebentar untuk memastikan data tersinkronisasi
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        // Explicitly refresh data dari Supabase untuk memastikan UI ter-update
+        await fetchFromSupabase();
+        console.log('✅ Data ter-update di UI setelah Supabase insert');
       } catch (err) {
         console.error('❌ Error in saveToSupabase:', err);
       } finally {
         setSavingToSupabase(false);
       }
     });
-  }, [addMedia]);
+  }, [addMedia, fetchFromSupabase]);
 
   const handleRemoveMedia = useCallback((year: number, mediaId: string) => {
     removeMedia(year, mediaId);

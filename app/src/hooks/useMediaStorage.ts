@@ -202,5 +202,6 @@ export function useMediaStorage() {
     isLoading,
     years: YEARS,
     cloudStatus,
+    fetchFromSupabase, // Export untuk explicit refresh dari parent component
   };
 }
