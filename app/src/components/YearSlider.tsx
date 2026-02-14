@@ -47,6 +47,8 @@ export function YearSlider({
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    e.preventDefault();
+    
     const file = e.target.files?.[0];
     if (file && activeYearForAdd) {
       onAddMedia(activeYearForAdd, file);
@@ -79,14 +81,16 @@ export function YearSlider({
 
   return (
     <div className="relative w-full max-w-4xl mx-auto">
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/*,video/*"
-        onChange={handleFileChange}
-        className="hidden"
-        capture="environment"
-      />
+      <form onSubmit={handleFileFormSubmit} className="contents">
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*,video/*"
+          onChange={handleFileChange}
+          className="hidden"
+          capture="environment"
+        />
+      </form>
 
       {/* Navigation Buttons */}
       <button
