@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Heart, LogOut, Lock, Unlock, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { LoginModal } from '@/components/LoginModal';
@@ -6,19 +6,48 @@ import { YearSlider } from '@/components/YearSlider';
 import { Gallery } from '@/components/Gallery';
 import { StorySection } from '@/components/StorySection';
 import { ThemeSelector } from '@/components/ThemeSelector';
+import { CloudStatus } from '@/components/CloudStatus';
 import { LoveTheme, LoveSeaTheme, SakuraTheme, SpaceTheme, CatTheme, OriginalTheme } from '@/components/themes';
 import { useAuth } from '@/hooks/useAuth';
 import { useMediaStorage } from '@/hooks/useMediaStorage';
 import type { ThemeType } from '@/types';
+import { supabase } from './supabaseClient';
 import './App.css';
+
+// Simpan memory ke Supabase
+async function simpanMemory(judul: string, linkGambar: string) {
+  const { error } = await supabase
+    .from('Memories')
+    .insert([
+      { title: judul, image_url: linkGambar }
+    ]);
+
+  if (error) {
+    console.error("Gagal simpan:", error.message);
+  } else {
+    alert("Kenangan berhasil disimpan selamanya!");
+  }
+}
 
 function App() {
   const { user, login, logout, isAuthenticated, isLoading: authLoading } = useAuth();
-  const { addMedia, removeMedia, getMediaByYear, getAllMedia, years, isLoading: mediaLoading } = useMediaStorage();
+  const { addMedia, removeMedia, getMediaByYear, getAllMedia, years, isLoading: mediaLoading, cloudStatus } = useMediaStorage();
   
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [selectedYear, setSelectedYear] = useState(2021);
   const [currentTheme, setCurrentTheme] = useState<ThemeType>('love');
+  const [lastSavedMedia, setLastSavedMedia] = useState<Set<string>>(new Set());
+
+  // Simpan media ke Supabase ketika media baru ditambahkan
+  const allMedia = getAllMedia();
+  useEffect(() => {
+    allMedia.forEach(media => {
+      if (!lastSavedMedia.has(media.id) && media.url) {
+        simpanMemory(`Kenangan ${media.year}`, media.url);
+        setLastSavedMedia(prev => new Set([...prev, media.id]));
+      }
+    });
+  }, [allMedia, lastSavedMedia]);
 
   const handleLogin = useCallback((phone: string, password: string): boolean => {
     return login(phone, password);
@@ -62,7 +91,6 @@ function App() {
     );
   }
 
-  const allMedia = getAllMedia();
   const authenticated = isAuthenticated();
 
   return (
@@ -226,6 +254,9 @@ function App() {
         onClose={() => setIsLoginModalOpen(false)}
         onLogin={handleLogin}
       />
+
+      {/* Cloud Status Indicator */}
+      <CloudStatus status={cloudStatus} />
     </div>
   );
 }
