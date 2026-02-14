@@ -9,6 +9,14 @@ export interface MediaItem {
   createdAt: Date;
 }
 
+export interface PhotoboxItem {
+  id: string;
+  title: string;
+  url: string;
+  templateName: string;
+  createdAt: Date;
+}
+
 export interface YearData {
   year: number;
   media: MediaItem[];

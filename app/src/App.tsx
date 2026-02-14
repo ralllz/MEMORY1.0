@@ -6,6 +6,7 @@ import { YearSlider } from '@/components/YearSlider';
 import { Gallery } from '@/components/Gallery';
 import { StorySection } from '@/components/StorySection';
 import { ThemeSelector } from '@/components/ThemeSelector';
+import { PhotoboxButton } from '@/components/PhotoboxButton';
 import { CloudStatus } from '@/components/CloudStatus';
 import { LoveTheme, LoveSeaTheme, SakuraTheme, SpaceTheme, CatTheme, OriginalTheme } from '@/components/themes';
 import { useAuth } from '@/hooks/useAuth';
@@ -197,12 +198,24 @@ function App() {
           </div>
         </header>
 
-        {/* Theme Selector */}
-        <div className="sticky top-16 z-40 backdrop-blur-sm">
-          <ThemeSelector
-            currentTheme={currentTheme}
-            onSelectTheme={setCurrentTheme}
-          />
+        {/* Theme Selector & Photobox */}
+        <div className="sticky top-16 z-40 backdrop-blur-sm border-b border-pink-200/50">
+          <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between gap-4">
+            <div className="flex-1">
+              <ThemeSelector
+                currentTheme={currentTheme}
+                onSelectTheme={setCurrentTheme}
+              />
+            </div>
+            
+            {/* Photobox Button */}
+            {isAuthenticated && (
+              <PhotoboxButton onSaveComplete={() => {
+                console.log('📸 [App] Photobox save complete, refreshing data...');
+                fetchFromSupabase();
+              }} />
+            )}
+          </div>
         </div>
 
         {/* Main Content */}
