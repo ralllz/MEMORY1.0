@@ -227,15 +227,18 @@ export function useMediaStorage() {
     };
 
     // Add placeholder to state immediately for instant UI feedback
-    setYearData(prev => prev.map(yd => {
-      if (yd.year === year) {
-        return {
-          ...yd,
-          media: [...yd.media, placeholderMedia],
-        };
-      }
-      return yd;
-    }));
+    setYearData(prev => {
+      console.log('📍 [ADDMEDIA] Adding placeholder to yearData for year:', year);
+      return prev.map(yd => {
+        if (yd.year === year) {
+          return {
+            ...yd,
+            media: [...yd.media, placeholderMedia],
+          };
+        }
+        return yd;
+      });
+    });
 
     // Upload to Cloudinary asynchronously
     uploadToCloudinary(file)
@@ -243,19 +246,22 @@ export function useMediaStorage() {
         console.log('📦 [ADDMEDIA] Cloudinary upload complete, updating UI with real URL...');
         
         // Update state dengan URL yang sebenarnya dari Cloudinary
-        setYearData(prev => prev.map(yd => {
-          if (yd.year === year) {
-            return {
-              ...yd,
-              media: yd.media.map(m =>
-                m.id === mediaId
-                  ? { ...m, url: url }
-                  : m
-              ),
-            };
-          }
-          return yd;
-        }));
+        setYearData(prev => {
+          console.log('🔄 [ADDMEDIA] Updating placeholder URL with Cloudinary URL');
+          return prev.map(yd => {
+            if (yd.year === year) {
+              return {
+                ...yd,
+                media: yd.media.map(m =>
+                  m.id === mediaId
+                    ? { ...m, url: url }
+                    : m
+                ),
+              };
+            }
+            return yd;
+          });
+        });
 
         // ✅ REQUIREMENT: Call onUploadComplete callback
         // This should handle Supabase insert in App.tsx
@@ -263,9 +269,12 @@ export function useMediaStorage() {
           try {
             console.log('💾 [ADDMEDIA] Executing onUploadComplete callback (App.tsx Supabase insert)...');
             await Promise.resolve(onUploadComplete(url));
-            console.log('✅ [ADDMEDIA] onUploadComplete callback completed');
+            console.log('✅ [ADDMEDIA] onUploadComplete callback completed SUCCESSFULLY');
           } catch (error) {
-            console.error('❌ [ADDMEDIA] Error in onUploadComplete callback:', error);
+            console.error('❌ [ADDMEDIA] ERROR in onUploadComplete callback:', {
+              error: error instanceof Error ? error.message : String(error),
+              stack: error instanceof Error ? error.stack : undefined,
+            });
             throw error; // Re-throw to prevent sync from proceeding
           }
         }
@@ -278,14 +287,26 @@ export function useMediaStorage() {
         await new Promise(resolve => setTimeout(resolve, 1500));
         
         console.log('🔄 [ADDMEDIA] SYNCING: Calling fetchFromSupabase() to refresh data...');
-        await fetchFromSupabase();
-        console.log('✅ [ADDMEDIA] SYNC COMPLETE - All devices see the new data WITHOUT reload!');
+        try {
+          await fetchFromSupabase();
+          console.log('✅ [ADDMEDIA] SYNC COMPLETE - All devices see the new data WITHOUT reload!');
+        } catch (syncError) {
+          console.error('❌ [ADDMEDIA] ERROR during sync/fetchFromSupabase:', {
+            error: syncError instanceof Error ? syncError.message : String(syncError),
+            stack: syncError instanceof Error ? syncError.stack : undefined,
+          });
+        }
         
         setCloudStatus('success');
         setTimeout(() => setCloudStatus('idle'), 2000);
       })
       .catch(error => {
-        console.error('❌ [ADDMEDIA] FAILED - Error during upload process:', error);
+        console.error('❌ [ADDMEDIA] FAILED - Error during upload process:', {
+          error: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack : undefined,
+          fileName: file.name,
+          fileType: file.type,
+        });
         setCloudStatus('error');
         setTimeout(() => setCloudStatus('idle'), 3000);
       });
