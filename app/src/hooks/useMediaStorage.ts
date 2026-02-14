@@ -99,7 +99,7 @@ export function useMediaStorage() {
     fetchFromSupabase();
   }, [fetchFromSupabase]);
 
-  const addMedia = useCallback((year: number, file: File, onUploadComplete?: (url: string) => void): MediaItem => {
+  const addMedia = useCallback((year: number, file: File, onUploadComplete?: (url: string) => Promise<void> | void): MediaItem => {
     const mediaId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     
     setCloudStatus('saving');
@@ -126,7 +126,7 @@ export function useMediaStorage() {
 
     // Upload to Cloudinary in background
     uploadToCloudinary(file)
-      .then(({ url }) => {
+      .then(async ({ url }) => {
         // Update state dengan URL yang sebenarnya dari Cloudinary
         setYearData(prev => prev.map(yd => {
           if (yd.year === year) {
@@ -144,13 +144,19 @@ export function useMediaStorage() {
 
         // Callback ke App.tsx untuk save ke Supabase
         if (onUploadComplete) {
-          onUploadComplete(url);
+          try {
+            await Promise.resolve(onUploadComplete(url));
+            console.log('✅ Tersimpan ke Supabase');
+          } catch (error) {
+            console.error('Error saving to Supabase:', error);
+          }
         }
 
-        // Fetch ulang dari Supabase setelah upload & save selesai
-        setTimeout(() => {
-          fetchFromSupabase();
-        }, 1000);
+        // Fetch ulang dari Supabase setelah save berhasil
+        // Tunggu sedikit untuk memastikan Supabase transaction selesai
+        await new Promise(resolve => setTimeout(resolve, 500));
+        await fetchFromSupabase();
+        console.log('✅ Upload dan sinkronisasi selesai');
 
         setCloudStatus('success');
         console.log('✅ Upload ke Cloudinary berhasil:', url);
@@ -165,7 +171,7 @@ export function useMediaStorage() {
     return placeholderMedia;
   }, [fetchFromSupabase]);
 
-  const removeMedia = useCallback((year: number, mediaId: string) => {
+  const removeMedia = useCallback(async (year: number, mediaId: string) => {
     // Remove dari state immediately
     setYearData(prev => prev.map(yd => {
       if (yd.year === year) {
@@ -173,10 +179,10 @@ export function useMediaStorage() {
       }
       return yd;
     }));
-    // Fetch ulang dari Supabase setelah delete (di-handle oleh App.tsx)
-    setTimeout(() => {
-      fetchFromSupabase();
-    }, 500);
+    // Tunggu Supabase delete selesai, kemudian fetch ulang
+    await new Promise(resolve => setTimeout(resolve, 300));
+    await fetchFromSupabase();
+    console.log('✅ Delete dan sinkronisasi selesai');
   }, [fetchFromSupabase]);
 
   const getMediaByYear = useCallback((year: number): MediaItem[] => {
