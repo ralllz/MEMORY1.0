@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { Camera, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { getOptimizedImageSettings, getSimpleCameraConstraints, getFallbackCameraConstraints } from '@/lib/cameraOptimization';
@@ -12,124 +12,182 @@ export function CameraCapture({ onCapture, onClose }: CameraCaptureProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const [stream, setStream] = useState<MediaStream | null>(null);
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [error, setError] = useState<string>('');
   const [videoReady, setVideoReady] = useState(false);
   const [cameraLoadTime, setCameraLoadTime] = useState<number>(0);
 
-  useEffect(() => {
-    let videoReadyTimeoutId: ReturnType<typeof setTimeout> | null = null;
-    let isMounted = true;
-
-    const setupCamera = async () => {
+  /**
+   * Start camera dengan logic yang simpel dan stabil
+   * Menggunakan useCallback agar referensi function tetap stabil
+   */
+  const startCamera = useCallback(async () => {
+    try {
+      const startTime = performance.now();
+      console.log('📷 [Camera] Starting camera initialization...');
+      
+      let mediaStream: MediaStream | null = null;
+      
+      // ATTEMPT 1: Simple video constraint
       try {
-        const startTime = performance.now();
-        console.log('📷 [Camera] Requesting access...');
+        console.log('📷 [Camera] Attempt 1: Simple video constraint');
+        mediaStream = await Promise.race([
+          navigator.mediaDevices.getUserMedia(getSimpleCameraConstraints()),
+          new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error('timeout')), 5000)
+          ),
+        ]);
+        console.log('✅ [Camera] Attempt 1 SUCCESS');
+      } catch (err1) {
+        console.log('⚠️ [Camera] Attempt 1 failed, trying fallback...');
         
-        let stream: MediaStream | null = null;
-        
-        // Try simple approach first
+        // ATTEMPT 2: Fallback dengan facingMode
         try {
-          console.log('📷 [Camera] Try 1: Basic video');
-          stream = await Promise.race([
-            navigator.mediaDevices.getUserMedia(getSimpleCameraConstraints()),
+          console.log('📷 [Camera] Attempt 2: With facingMode fallback');
+          mediaStream = await Promise.race([
+            navigator.mediaDevices.getUserMedia(getFallbackCameraConstraints()),
             new Promise<never>((_, reject) =>
               setTimeout(() => reject(new Error('timeout')), 5000)
             ),
           ]);
-          console.log(`✅ [Camera] Got stream`);
-        } catch (err1) {
-          // Fallback
-          console.log(`⚠️ [Camera] Try 2: With facingMode`);
-          try {
-            stream = await Promise.race([
-              navigator.mediaDevices.getUserMedia(getFallbackCameraConstraints()),
-              new Promise<never>((_, reject) =>
-                setTimeout(() => reject(new Error('timeout')), 5000)
-              ),
-            ]);
-            console.log(`✅ [Camera] Got stream (fallback)`);
-          } catch (err2) {
-            throw err2;
-          }
+          console.log('✅ [Camera] Attempt 2 SUCCESS');
+        } catch (err2) {
+          console.error('❌ [Camera] Attempt 2 failed:', err2);
+          throw err2;
         }
+      }
 
-        if (!stream) {
-          throw new Error('Failed to get camera stream');
-        }
+      // Validate stream
+      if (!mediaStream) {
+        throw new Error('Failed to acquire media stream');
+      }
 
-        // Check video track exists
-        const videoTracks = stream.getVideoTracks();
-        if (videoTracks.length === 0) {
-          throw new Error('No video track available');
-        }
+      const videoTracks = mediaStream.getVideoTracks();
+      if (videoTracks.length === 0) {
+        throw new Error('No video track available in stream');
+      }
 
-        console.log(`📹 [Camera] Track ready, attaching...`);
+      console.log(`📹 [Camera] Got stream with ${videoTracks.length} video track(s)`);
 
-        if (!isMounted || !videoRef.current) {
-          stream.getTracks().forEach(t => t.stop());
-          return;
-        }
+      // SET STATE FIRST - menyimpan stream ke state
+      setStream(mediaStream);
+      streamRef.current = mediaStream;
 
-        // Attach stream immediately
-        videoRef.current.srcObject = stream;
-        streamRef.current = stream;
+      // THEN attach ke video element - penting untuk order ini!
+      if (videoRef.current) {
+        console.log('📹 [Camera] Attaching stream to video element...');
+        videoRef.current.srcObject = mediaStream;
         
-        // Set permission immediately - video element will render frames
+        // NOW mark as permission granted - SETELAH srcObject sudah set
         setHasPermission(true);
         
         const loadTimeMs = performance.now() - startTime;
         setCameraLoadTime(loadTimeMs);
-        console.log(`✅ [Camera] Ready (${loadTimeMs.toFixed(0)}ms)`);
-
-        // Mark ready on first video event
-        const markReady = () => {
-          if (isMounted) {
-            console.log('✅ [Camera] Video streaming');
-            setVideoReady(true);
-          }
-        };
-
-        const video = videoRef.current;
-        video.addEventListener('canplay', markReady, { once: true });
-        video.addEventListener('playing', markReady, { once: true });
-
-        // Fallback timeout (1.5s max wait)
-        videoReadyTimeoutId = setTimeout(() => {
-          if (isMounted) {
-            console.log('⏱️ [Camera] Forcing ready');
-            setVideoReady(true);
-          }
-        }, 1500);
-
-      } catch (err) {
-        if (isMounted) {
-          console.error('❌ [Camera] Error:', err);
-          const message = err instanceof Error ? err.message : 'Camera access failed';
-          setError(message);
-          setHasPermission(false);
-        }
+        console.log(`✅ [Camera] Permission set and stream attached (${loadTimeMs.toFixed(0)}ms)`);
+      } else {
+        throw new Error('Video element reference not available');
       }
-    };
 
-    setupCamera();
+    } catch (err) {
+      console.error('❌ [Camera] Initialization error:', err);
+      const message = err instanceof Error ? err.message : 'Camera initialization failed';
+      setError(message);
+      setHasPermission(false);
+      setStream(null);
+    }
+  }, []);
+
+  /**
+   * Handle ketika video element sudah punya metadata
+   * PENTING: Kita manual call play() karena autoplay kadang tidak berfungsi
+   */
+  const handleOnLoadedMetadata = useCallback(() => {
+    console.log('📹 [Camera] onLoadedMetadata fired');
+    
+    if (videoRef.current) {
+      console.log('🎬 [Camera] Manually calling play() to force video playback');
+      
+      // Manual play - ini penting untuk browser yang tidak respect autoplay
+      videoRef.current.play()
+        .then(() => {
+          console.log('✅ [Camera] Video play() successful');
+          setVideoReady(true);
+        })
+        .catch((err) => {
+          console.log('⚠️ [Camera] Video play() failed:', err);
+          // Fallback: mark ready anyway
+          setVideoReady(true);
+        });
+    }
+  }, []);
+
+  /**
+   * Handle ketika video dapat di-play
+   */
+  const handleOnCanPlay = useCallback(() => {
+    console.log('✅ [Camera] Video can play');
+    if (videoRef.current && videoRef.current.paused) {
+      console.log('🎬 [Camera] Video paused, calling play()...');
+      videoRef.current.play().catch(err => {
+        console.log('⚠️ [Camera] Play failed on canplay:', err);
+      });
+    }
+    setVideoReady(true);
+  }, []);
+
+  /**
+   * Handle ketika video benar-benar mulai playing
+   */
+  const handleOnPlaying = useCallback(() => {
+    console.log('✅ [Camera] Video now playing');
+    setVideoReady(true);
+  }, []);
+
+  /**
+   * Setup camera saat component mount
+   */
+  useEffect(() => {
+    let readyTimeoutId: ReturnType<typeof setTimeout> | null = null;
+    let isMounted = true;
+
+    console.log('⚙️ [Camera] Component mounted, initializing...');
+    
+    // Call the memoized startCamera function
+    startCamera();
+
+    // Fallback timeout - jika dalam 3 detik tidak ready juga, paksa ready
+    readyTimeoutId = setTimeout(() => {
+      if (isMounted && videoRef.current?.srcObject) {
+        console.log('⏱️ [Camera] Forcing video ready after timeout');
+        if (videoRef.current && videoRef.current.paused) {
+          videoRef.current.play().catch(() => {});
+        }
+        setVideoReady(true);
+      }
+    }, 3000);
 
     return () => {
+      console.log('🛑 [Camera] Component unmounting, cleaning up...');
       isMounted = false;
       
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach(track => {
+      // Stop all tracks dari stream
+      if (stream) {
+        stream.getTracks().forEach(track => {
+          console.log(`🛑 [Camera] Stopping ${track.kind} track`);
           track.stop();
-          console.log('🛑 [Camera] Stop');
         });
-        streamRef.current = null;
       }
+      
+      // Clear video element
       if (videoRef.current) {
         videoRef.current.srcObject = null;
       }
-      if (videoReadyTimeoutId) clearTimeout(videoReadyTimeoutId);
+      
+      // Clear timeout
+      if (readyTimeoutId) clearTimeout(readyTimeoutId);
     };
-  }, []);
+  }, [startCamera, stream]);
 
   // Capture photo from video stream with optimization
   const handleCapture = () => {
@@ -169,30 +227,6 @@ export function CameraCapture({ onCapture, onClose }: CameraCaptureProps) {
       console.error('❌ [Camera] Capture failed:', error);
       setError('Failed to capture photo. Please try again.');
     }
-  };
-
-  // Handle video loaded event
-  const handleVideoLoaded = () => {
-    console.log('✅ [Camera] Video stream ready to capture (onLoadedMetadata)');
-    setVideoReady(true);
-  };
-
-  // Handle when video can play
-  const handleVideoCanPlay = () => {
-    console.log('✅ [Camera] Video can play (onCanPlay)');
-    setVideoReady(true);
-  };
-
-  // Handle when video starts playing
-  const handleVideoPlay = () => {
-    console.log('✅ [Camera] Video playing (onPlay)');
-    setVideoReady(true);
-  };
-
-  // Handle loaded data
-  const handleLoadedData = () => {
-    console.log('✅ [Camera] Loaded data (onLoadedData)');
-    setVideoReady(true);
   };
 
   return (
@@ -251,10 +285,9 @@ export function CameraCapture({ onCapture, onClose }: CameraCaptureProps) {
                   autoPlay
                   playsInline
                   muted
-                  onLoadedMetadata={handleVideoLoaded}
-                  onCanPlay={handleVideoCanPlay}
-                  onPlay={handleVideoPlay}
-                  onLoadedData={handleLoadedData}
+                  onLoadedMetadata={handleOnLoadedMetadata}
+                  onCanPlay={handleOnCanPlay}
+                  onPlay={handleOnPlaying}
                   className="w-full aspect-video object-cover"
                   style={{
                     transform: 'scaleX(-1)',  // Mirror for selfie-like experience
