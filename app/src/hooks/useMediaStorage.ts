@@ -127,52 +127,26 @@ export function useMediaStorage() {
           .filter(item => {
             // ✅ DEFENSIVE: Only include items with valid year
             if (!item.year || typeof item.year !== 'number') {
-              console.log('⚠️ [SUPABASE] Skipping item with invalid/missing year:', { 
+              console.log('⚠️ [SUPABASE] Skipping item year mismatch:', { 
                 id: item.id, 
-                hasYear: !!item.year,
-                year: item.year 
+                year: item.year,
+                yearType: typeof item.year,
               });
               return false;
             }
             return item.year === year;
           })
-          .map(item => {
-            try {
-              // ✅ DEFENSIVE: Handle missing file_type gracefully
-              const fileType = item.file_type?.startsWith('video/') ? 'video' : 'photo';
-              if (!item.image_url) {
-                console.warn('⚠️ [SUPABASE] Item missing image_url:', item.id);
-              }
-              return {
-                id: item.id.toString(),
-                type: fileType as 'video' | 'photo',
-                url: item.image_url || '',
-                year: item.year,
-                createdAt: new Date(item.created_at),
-              } as MediaItem;
-            } catch (mapError) {
-              console.error('❌ [SUPABASE] Error mapping item:', { 
-                itemId: item.id, 
-                error: mapError 
-              });
-              return null as any;
-            }
-          })
-          .filter(item => item !== null), // Remove any failed mappings
+          .map(item => ({
+            id: item.id.toString(),
+            type: (item.file_type?.startsWith('video/') ? 'video' : 'photo') as 'video' | 'photo',
+            url: item.image_url || '',
+            year: item.year,
+            createdAt: new Date(item.created_at),
+          } as MediaItem)),
       }));
 
-      // ✅ Log if newly inserted item appears (verify sync is working)
-      const totalItems = data.length;
-      const displayedItems = loadedYearData.reduce((sum, yd) => sum + yd.media.length, 0);
-      if (totalItems > displayedItems) {
-        console.warn('⚠️ [SUPABASE] Some items missing after filter:', {
-          total: totalItems,
-          displayed: displayedItems,
-          missingYears: data.filter(item => !item.year).map(item => item.id)
-        });
-      }
-
       setYearData(loadedYearData);
+      const displayedItems = loadedYearData.reduce((sum, yd) => sum + yd.media.length, 0);
       console.log('✅ [SUPABASE] State updated with', displayedItems, 'items across', 
         loadedYearData.filter(yd => yd.media.length > 0).length, 'years');
     } catch (error) {
