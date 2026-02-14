@@ -63,6 +63,7 @@ export function useMediaStorage() {
   const [yearData, setYearData] = useState<YearData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [cloudStatus, setCloudStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
+  const [uploadCallbacks, setUploadCallbacks] = useState<Map<string, Function>>(new Map());
 
   // Load metadata from localStorage on mount
   useEffect(() => {
@@ -109,15 +110,40 @@ export function useMediaStorage() {
     loadMedia();
   }, []);
 
-  const addMedia = useCallback((year: number, file: File): MediaItem | null => {
+  // Register callback untuk ketika upload selesai
+  const registerUploadCallback = useCallback((mediaId: string, callback: (url: string) => void) => {
+    setUploadCallbacks(prev => new Map(prev).set(mediaId, callback));
+  }, []);
+
+  const addMedia = useCallback((year: number, file: File, onUploadComplete?: (url: string) => void): MediaItem => {
     const mediaId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     
     setCloudStatus('saving');
     
-    // Upload to Cloudinary
+    // Create temporary media item dengan placeholder URL
+    const placeholderMedia: MediaItem = {
+      id: mediaId,
+      type: file.type.startsWith('video/') ? 'video' : 'photo',
+      url: '', // Will be updated after Cloudinary upload
+      year,
+      createdAt: new Date(),
+    };
+
+    // Add placeholder to state immediately
+    setYearData(prev => prev.map(yd => {
+      if (yd.year === year) {
+        return {
+          ...yd,
+          media: [...yd.media, placeholderMedia],
+        };
+      }
+      return yd;
+    }));
+
+    // Upload to Cloudinary in background
     uploadToCloudinary(file)
       .then(({ url, publicId }) => {
-        // Save metadata to localStorage dengan URL Cloudinary
+        // Save metadata to localStorage
         const stored = localStorage.getItem(METADATA_KEY);
         const metadata: StoredMediaMetadata[] = stored ? JSON.parse(stored) : [];
         metadata.push({
@@ -133,31 +159,34 @@ export function useMediaStorage() {
 
         try {
           localStorage.setItem(METADATA_KEY, JSON.stringify(metadata));
+          console.log('✅ Metadata saved to localStorage');
         } catch (error) {
           console.error('Error saving metadata:', error);
         }
 
-        // Update state dengan URL Cloudinary
+        // Update state dengan URL yang sebenarnya dari Cloudinary
         setYearData(prev => prev.map(yd => {
           if (yd.year === year) {
             return {
               ...yd,
-              media: [
-                ...yd.media,
-                {
-                  id: mediaId,
-                  type: file.type.startsWith('video/') ? 'video' : 'photo',
-                  url: url, // URL dari Cloudinary
-                  year,
-                  createdAt: new Date(),
-                },
-              ],
+              media: yd.media.map(m =>
+                m.id === mediaId
+                  ? { ...m, url: url }
+                  : m
+              ),
             };
           }
           return yd;
         }));
 
+        // Call registered callback
+        const callback = uploadCallbacks.get(mediaId);
+        if (callback && onUploadComplete) {
+          onUploadComplete(url);
+        }
+
         setCloudStatus('success');
+        console.log('✅ Upload ke Cloudinary berhasil:', url);
         setTimeout(() => setCloudStatus('idle'), 2000);
       })
       .catch(error => {
@@ -166,17 +195,8 @@ export function useMediaStorage() {
         setTimeout(() => setCloudStatus('idle'), 3000);
       });
 
-    // Return null temporarily (state akan update setelah upload selesai)
-    const newMedia: MediaItem = {
-      id: mediaId,
-      type: file.type.startsWith('video/') ? 'video' : 'photo',
-      url: '', // Temporary, akan diupdate setelah Cloudinary upload
-      year,
-      createdAt: new Date(),
-    };
-
-    return newMedia;
-  }, []);
+    return placeholderMedia;
+  }, [uploadCallbacks]);
 
   const removeMedia = useCallback((year: number, mediaId: string) => {
     // Get metadata untuk delete dari Cloudinary (optional)
@@ -190,6 +210,7 @@ export function useMediaStorage() {
         
         const filtered = metadata.filter(m => m.id !== mediaId);
         localStorage.setItem(METADATA_KEY, JSON.stringify(filtered));
+        console.log('✅ Deleted from localStorage');
       } catch (error) {
         console.error('Error updating metadata:', error);
       }
@@ -220,5 +241,6 @@ export function useMediaStorage() {
     isLoading,
     years: YEARS,
     cloudStatus,
+    registerUploadCallback,
   };
 }
