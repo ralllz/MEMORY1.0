@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import type { MediaItem, YearData } from '@/types';
 
 const YEARS = [2021, 2022, 2023, 2024, 2025, 2026];
+<<<<<<< HEAD
 const METADATA_KEY = 'memory_metadata';
 
 // Cloudinary Configuration
@@ -51,6 +52,8 @@ const uploadToCloudinary = async (file: File): Promise<{ url: string; publicId: 
     throw error;
   }
 };
+=======
+>>>>>>> 4b067a9dd4bcdd4241f391ba645aa2cdd60bb42a
 
 const generateSampleMedia = (): YearData[] => {
   return YEARS.map(year => ({
@@ -62,6 +65,7 @@ const generateSampleMedia = (): YearData[] => {
 export function useMediaStorage() {
   const [yearData, setYearData] = useState<YearData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+<<<<<<< HEAD
   const [cloudStatus, setCloudStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
 
   // Load metadata from localStorage on mount
@@ -171,14 +175,57 @@ export function useMediaStorage() {
       id: mediaId,
       type: file.type.startsWith('video/') ? 'video' : 'photo',
       url: '', // Temporary, akan diupdate setelah Cloudinary upload
+=======
+
+  useEffect(() => {
+    const stored = localStorage.getItem('memory_media');
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      setYearData(parsed.map((yd: YearData) => ({
+        ...yd,
+        media: yd.media.map((m: MediaItem) => ({
+          ...m,
+          createdAt: new Date(m.createdAt),
+        })),
+      })));
+    } else {
+      setYearData(generateSampleMedia());
+    }
+    setIsLoading(false);
+  }, []);
+
+  useEffect(() => {
+    if (!isLoading && yearData.length > 0) {
+      localStorage.setItem('memory_media', JSON.stringify(yearData));
+    }
+  }, [yearData, isLoading]);
+
+  const addMedia = useCallback((year: number, file: File): MediaItem | null => {
+    const url = URL.createObjectURL(file);
+    const newMedia: MediaItem = {
+      id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      type: file.type.startsWith('video/') ? 'video' : 'photo',
+      url,
+>>>>>>> 4b067a9dd4bcdd4241f391ba645aa2cdd60bb42a
       year,
       createdAt: new Date(),
     };
 
+<<<<<<< HEAD
+=======
+    setYearData(prev => prev.map(yd => {
+      if (yd.year === year) {
+        return { ...yd, media: [...yd.media, newMedia] };
+      }
+      return yd;
+    }));
+
+>>>>>>> 4b067a9dd4bcdd4241f391ba645aa2cdd60bb42a
     return newMedia;
   }, []);
 
   const removeMedia = useCallback((year: number, mediaId: string) => {
+<<<<<<< HEAD
     // Get metadata untuk delete dari Cloudinary (optional)
     const stored = localStorage.getItem(METADATA_KEY);
     if (stored) {
@@ -195,6 +242,8 @@ export function useMediaStorage() {
       }
     }
 
+=======
+>>>>>>> 4b067a9dd4bcdd4241f391ba645aa2cdd60bb42a
     setYearData(prev => prev.map(yd => {
       if (yd.year === year) {
         return { ...yd, media: yd.media.filter(m => m.id !== mediaId) };
@@ -219,6 +268,9 @@ export function useMediaStorage() {
     getAllMedia,
     isLoading,
     years: YEARS,
+<<<<<<< HEAD
     cloudStatus,
+=======
+>>>>>>> 4b067a9dd4bcdd4241f391ba645aa2cdd60bb42a
   };
 }

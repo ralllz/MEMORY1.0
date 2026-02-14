@@ -599,6 +599,7 @@
 .bg-gradient-radial {
   background: radial-gradient(circle at center, var(--tw-gradient-from), var(--tw-gradient-to));
 }
+<<<<<<< HEAD
 /* Mobile Optimizations */
 @media (max-width: 768px) {
   body {
@@ -668,3 +669,5 @@
     font-size: 1.5rem;
   }
 }
+=======
+>>>>>>> 4b067a9dd4bcdd4241f391ba645aa2cdd60bb42a
