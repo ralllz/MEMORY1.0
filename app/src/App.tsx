@@ -91,27 +91,29 @@ function App() {
     });
   }, [addMedia, fetchFromSupabase]);
 
-  const handleRemoveMedia = useCallback((year: number, mediaId: string) => {
+  const handleRemoveMedia = useCallback(async (year: number, mediaId: string) => {
     console.log('🗑️ [APP] Delete request:', { year, mediaId });
     
-    // Delete dari Supabase FIRST
-    supabase
-      .from('Memories')
-      .delete()
-      .eq('id', parseInt(mediaId))
-      .then(({ error }) => {
-        if (error) {
-          console.error('❌ [APP] Error deleting from Supabase:', error.message);
-          return;
-        }
-        console.log('✅ [APP] Deleted from Supabase:', mediaId);
-        
-        // THEN remove dari state & sync
-        removeMedia(year, mediaId);
-      })
-      .catch(err => {
-        console.error('❌ [APP] Delete exception:', err);
-      });
+    try {
+      // Delete dari Supabase FIRST
+      const { error } = await supabase
+        .from('Memories')
+        .delete()
+        .eq('id', parseInt(mediaId));
+      
+      if (error) {
+        console.error('❌ [APP] Error deleting from Supabase:', error.message);
+        return;
+      }
+      
+      console.log('✅ [APP] Deleted from Supabase:', mediaId);
+      
+      // THEN remove dari state & sync
+      await removeMedia(year, mediaId);
+    } catch (err: unknown) {
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      console.error('❌ [APP] Delete exception:', errorMsg);
+    }
   }, [removeMedia]);
 
   const renderTheme = () => {
