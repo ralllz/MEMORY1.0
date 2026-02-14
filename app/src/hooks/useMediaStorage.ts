@@ -125,8 +125,19 @@ export function useMediaStorage() {
           }),
       }));
 
+      // ✅ Log if newly inserted item appears (verify sync is working)
+      const totalItems = data.length;
+      const displayedItems = loadedYearData.reduce((sum, yd) => sum + yd.media.length, 0);
+      if (totalItems > displayedItems) {
+        console.warn('⚠️ [SUPABASE] Some items missing after filter:', {
+          total: totalItems,
+          displayed: displayedItems,
+          missingYears: data.filter(item => !item.year).map(item => item.id)
+        });
+      }
+
       setYearData(loadedYearData);
-      console.log('✅ [SUPABASE] State updated with', data.length, 'total items across', 
+      console.log('✅ [SUPABASE] State updated with', displayedItems, 'items across', 
         loadedYearData.filter(yd => yd.media.length > 0).length, 'years');
     } catch (error) {
       console.error('❌ [SUPABASE] Exception during fetch:', {
@@ -227,8 +238,8 @@ export function useMediaStorage() {
         // ✅ REQUIREMENT 2: EXPLICIT SYNC - Call fetchFromSupabase at END
         // This ensures data propagates to all devices WITHOUT page reload
         // ========================================================================
-        console.log('⏳ [ADDMEDIA] Waiting 500ms for Supabase transaction to commit...');
-        await new Promise(resolve => setTimeout(resolve, 500));
+        console.log('⏳ [ADDMEDIA] Waiting 1500ms for Supabase transaction to fully commit...');
+        await new Promise(resolve => setTimeout(resolve, 1500));
         
         console.log('🔄 [ADDMEDIA] SYNCING: Calling fetchFromSupabase() to refresh data...');
         await fetchFromSupabase();

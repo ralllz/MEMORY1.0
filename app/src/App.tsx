@@ -39,12 +39,15 @@ function App() {
         const judulInput = `Kenangan ${year} - ${file.name}`;
         const linkDariCloudinary = cloudinaryUrl;
 
+        // ✅ REQUIRED: Include year and file_type untuk fetchFromSupabase bisa filter & display
         const { data, error } = await supabase
           .from('Memories')
           .insert([
             {
               title: judulInput,
               image_url: linkDariCloudinary,
+              year: year,              // ✅ CRITICAL: Year untuk filter di fetchFromSupabase
+              file_type: file.type,    // ✅ CRITICAL: File type untuk determine photo/video
             }
           ])
           .select();
@@ -56,9 +59,10 @@ function App() {
 
         console.log('✅ Tersimpan ke Supabase:', data?.[0]?.id);
         
-        // Tunggu sedikit untuk memastikan Supabase transaction fully committed
-        console.log('⏳ Waiting for transaction to commit...');
-        await new Promise(resolve => setTimeout(resolve, 500));
+        // ✅ CRITICAL: Wait longer for Supabase transaction to fully commit
+        // This ensures fetchFromSupabase can see the new data
+        console.log('⏳ Waiting 1500ms for Supabase transaction to fully commit...');
+        await new Promise(resolve => setTimeout(resolve, 1500));
         
         // Explicitly refresh data dari Supabase untuk memastikan UI ter-update
         console.log('🔄 Fetching updated data from Supabase...');
