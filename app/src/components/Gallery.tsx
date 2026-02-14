@@ -4,6 +4,7 @@ import type { MediaItem } from '@/types';
 import {
   Dialog,
   DialogContent,
+  DialogTitle,
 } from '@/components/ui/dialog';
 
 interface GalleryProps {
@@ -130,6 +131,11 @@ export function Gallery({
       {/* Media Viewer Modal */}
       <Dialog open={!!selectedMedia} onOpenChange={() => setSelectedMedia(null)}>
         <DialogContent className="max-w-4xl w-full p-0 bg-black/90 border-none">
+          {/* ✅ ACCESSIBILITY: DialogTitle for screen readers (hidden visually) */}
+          <DialogTitle className="sr-only">
+            {selectedMedia?.type === 'photo' ? 'Photo Viewer' : 'Video Viewer'}
+          </DialogTitle>
+          
           {selectedMedia && (
             <div className="relative">
               {selectedMedia.type === 'photo' ? (
