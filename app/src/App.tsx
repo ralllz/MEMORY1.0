@@ -39,7 +39,17 @@ function App() {
         const judulInput = `Kenangan ${year} - ${file.name}`;
         const linkDariCloudinary = cloudinaryUrl;
 
-        // ✅ REQUIRED: Include year and file_type untuk fetchFromSupabase bisa filter & display
+        // ✅ CRITICAL: Include year and file_type untuk fetchFromSupabase bisa filter & display
+        // ✅ DEFENSIVE: Validate inputs before sending to Supabase
+        if (!year || !linkDariCloudinary || !file.type) {
+          console.error('❌ [APP] Invalid input for Supabase insert:', {
+            year: year,
+            url: linkDariCloudinary ? 'present' : 'MISSING',
+            fileType: file.type || 'MISSING'
+          });
+          return;
+        }
+
         const { data, error } = await supabase
           .from('Memories')
           .insert([
@@ -53,7 +63,12 @@ function App() {
           .select();
 
         if (error) {
-          console.error('❌ Error saving to Supabase:', error.message);
+          console.error('❌ [APP] Error saving to Supabase:', {
+            message: error.message,
+            code: error.code,
+            details: error.details,
+            hint: error.hint,
+          });
           return;
         }
 

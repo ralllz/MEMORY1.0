@@ -94,6 +94,8 @@ export function useMediaStorage() {
         console.error('❌ [SUPABASE] Query error:', {
           message: error.message,
           code: error.code,
+          details: error.details,
+          hint: error.hint,
           timestamp: new Date().toISOString(),
         });
         setYearData(YEARS.map(year => ({ year, media: [] })));
@@ -106,23 +108,57 @@ export function useMediaStorage() {
         return;
       }
 
+      if (!Array.isArray(data)) {
+        console.error('❌ [SUPABASE] Invalid data format - expected array:', typeof data);
+        setYearData(YEARS.map(year => ({ year, media: [] })));
+        return;
+      }
+
       console.log('✅ [SUPABASE] Query success, processing', data.length, 'records...');
+      console.log('📋 [SUPABASE] Sample data structure:', data.length > 0 ? {
+        sample: data[0],
+        keys: Object.keys(data[0] || {})
+      } : 'No data');
 
       // Transform Supabase data ke format YearData
       const loadedYearData: YearData[] = YEARS.map(year => ({
         year,
         media: data
-          .filter(item => item.year === year)
+          .filter(item => {
+            // ✅ DEFENSIVE: Only include items with valid year
+            if (!item.year || typeof item.year !== 'number') {
+              console.log('⚠️ [SUPABASE] Skipping item with invalid/missing year:', { 
+                id: item.id, 
+                hasYear: !!item.year,
+                year: item.year 
+              });
+              return false;
+            }
+            return item.year === year;
+          })
           .map(item => {
-            const fileType = item.file_type?.startsWith('video/') ? 'video' : 'photo';
-            return {
-              id: item.id.toString(),
-              type: fileType as 'video' | 'photo',
-              url: item.image_url,
-              year: item.year,
-              createdAt: new Date(item.created_at),
-            } as MediaItem;
-          }),
+            try {
+              // ✅ DEFENSIVE: Handle missing file_type gracefully
+              const fileType = item.file_type?.startsWith('video/') ? 'video' : 'photo';
+              if (!item.image_url) {
+                console.warn('⚠️ [SUPABASE] Item missing image_url:', item.id);
+              }
+              return {
+                id: item.id.toString(),
+                type: fileType as 'video' | 'photo',
+                url: item.image_url || '',
+                year: item.year,
+                createdAt: new Date(item.created_at),
+              } as MediaItem;
+            } catch (mapError) {
+              console.error('❌ [SUPABASE] Error mapping item:', { 
+                itemId: item.id, 
+                error: mapError 
+              });
+              return null as any;
+            }
+          })
+          .filter(item => item !== null), // Remove any failed mappings
       }));
 
       // ✅ Log if newly inserted item appears (verify sync is working)
