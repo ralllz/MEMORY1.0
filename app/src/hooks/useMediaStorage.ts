@@ -5,8 +5,8 @@ const YEARS = [2021, 2022, 2023, 2024, 2025, 2026];
 const METADATA_KEY = 'memory_metadata';
 
 // Cloudinary Configuration
-const CLOUDINARY_CLOUD_NAME = 'MEMORY_CLD';
-const CLOUDINARY_UPLOAD_PRESET = 'MEMORYCLD';
+const CLOUDINARY_CLOUD_NAME = 'dfmieytqu';
+const CLOUDINARY_UPLOAD_PRESET = 'MEMORY_CLD';
 const CLOUDINARY_UPLOAD_URL = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`;
 
 interface StoredMediaMetadata {
