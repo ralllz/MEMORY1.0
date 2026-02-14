@@ -92,7 +92,26 @@ function App() {
   }, [addMedia, fetchFromSupabase]);
 
   const handleRemoveMedia = useCallback((year: number, mediaId: string) => {
-    removeMedia(year, mediaId);
+    console.log('🗑️ [APP] Delete request:', { year, mediaId });
+    
+    // Delete dari Supabase FIRST
+    supabase
+      .from('Memories')
+      .delete()
+      .eq('id', parseInt(mediaId))
+      .then(({ error }) => {
+        if (error) {
+          console.error('❌ [APP] Error deleting from Supabase:', error.message);
+          return;
+        }
+        console.log('✅ [APP] Deleted from Supabase:', mediaId);
+        
+        // THEN remove dari state & sync
+        removeMedia(year, mediaId);
+      })
+      .catch(err => {
+        console.error('❌ [APP] Delete exception:', err);
+      });
   }, [removeMedia]);
 
   const renderTheme = () => {
