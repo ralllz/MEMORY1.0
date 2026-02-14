@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import * as fabric from 'fabric';
+import { Canvas, Image } from 'fabric';
 import { X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { PHOTOBOX_TEMPLATES } from '@/hooks/usePhotoboxEditor';
@@ -13,7 +13,7 @@ interface PhotoboxEditorProps {
 
 export function PhotoboxEditor({ sourceImage, onSave, onClose, isLoading }: PhotoboxEditorProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const fabricCanvasRef = useRef<fabric.Canvas | null>(null);
+  const fabricCanvasRef = useRef<Canvas | null>(null);
   const [selectedTemplate, setSelectedTemplate] = useState<string>(PHOTOBOX_TEMPLATES[0].id);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -21,7 +21,7 @@ export function PhotoboxEditor({ sourceImage, onSave, onClose, isLoading }: Phot
   useEffect(() => {
     if (!canvasRef.current) return;
 
-    const canvas = new fabric.Canvas(canvasRef.current, {
+    const canvas = new Canvas(canvasRef.current, {
       width: 800,
       height: 600,
       backgroundColor: '#f0f0f0',
@@ -30,7 +30,7 @@ export function PhotoboxEditor({ sourceImage, onSave, onClose, isLoading }: Phot
     fabricCanvasRef.current = canvas;
 
     // Load source image
-    fabric.Image.fromURL(sourceImage, {
+    Image.fromURL(sourceImage, {
       onLoaded: (img: any) => {
         img.scaleToWidth(800);
         img.set({
@@ -45,7 +45,7 @@ export function PhotoboxEditor({ sourceImage, onSave, onClose, isLoading }: Phot
     // Load template
     const templatePath = PHOTOBOX_TEMPLATES.find(t => t.id === selectedTemplate)?.path;
     if (templatePath) {
-      fabric.Image.fromURL(templatePath, {
+      Image.fromURL(templatePath, {
         onLoaded: (template: any) => {
           template.scaleToWidth(800);
           template.set({
@@ -80,7 +80,7 @@ export function PhotoboxEditor({ sourceImage, onSave, onClose, isLoading }: Phot
     // Add new template
     const templatePath = PHOTOBOX_TEMPLATES.find(t => t.id === templateId)?.path;
     if (templatePath) {
-      fabric.Image.fromURL(templatePath, {
+      Image.fromURL(templatePath, {
         onLoaded: (template: any) => {
           template.scaleToWidth(800);
           template.set({
@@ -107,7 +107,7 @@ export function PhotoboxEditor({ sourceImage, onSave, onClose, isLoading }: Phot
       
       // Convert canvas to blob
       canvas.getElement().toBlob(
-        async (blob: Blob | null) => {
+        async (blob: Blob | null): Promise<void> => {
           try {
             if (!blob) throw new Error('Failed to create blob');
             
