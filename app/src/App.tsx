@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import { Heart, LogOut, Lock, Unlock, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { LoginModal } from '@/components/LoginModal';
@@ -22,27 +22,6 @@ function App() {
   const [selectedYear, setSelectedYear] = useState(2021);
   const [currentTheme, setCurrentTheme] = useState<ThemeType>('love');
   const [savingToSupabase, setSavingToSupabase] = useState(false);
-
-  // Load dari Supabase
-  const loadSupabaseMemories = useCallback(async () => {
-    try {
-      const { data, error } = await supabase
-        .from('Memories')
-        .select('*')
-        .order('created_at', { ascending: false });
-      
-      if (!error && data) {
-        console.log('✅ Loaded from Supabase:', data.length, 'memories');
-      }
-    } catch (err) {
-      console.error('Error loading from Supabase:', err);
-    }
-  }, []);
-
-  // Load memories dari Supabase saat app mount
-  useEffect(() => {
-    loadSupabaseMemories();
-  }, [loadSupabaseMemories]);
 
   const handleLogin = useCallback((phone: string, password: string): boolean => {
     return login(phone, password);
@@ -75,15 +54,14 @@ function App() {
         }
 
         console.log('✅ Tersimpan ke Supabase:', data?.[0]?.id);
-        // Reload memories setelah save
-        await loadSupabaseMemories();
+        // Note: fetchFromSupabase dari hook sudah dipanggil otomatis setelah save Supabase
       } catch (err) {
         console.error('❌ Error in saveToSupabase:', err);
       } finally {
         setSavingToSupabase(false);
       }
     });
-  }, [addMedia, loadSupabaseMemories]);
+  }, [addMedia]);
 
   const handleRemoveMedia = useCallback((year: number, mediaId: string) => {
     removeMedia(year, mediaId);
