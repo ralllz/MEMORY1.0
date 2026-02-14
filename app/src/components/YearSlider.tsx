@@ -47,20 +47,19 @@ export function YearSlider({
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Prevent bubbling to avoid any form submission
+    e.preventDefault();
+    e.stopPropagation();
+    
     const file = e.target.files?.[0];
     if (file && activeYearForAdd) {
+      console.log('📸 File selected:', file.name, file.size, file.type);
       onAddMedia(activeYearForAdd, file);
       setActiveYearForAdd(null);
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
     }
-  };
-
-  const handleFileFormSubmit = (e: React.FormEvent) => {
-    // Cegah halaman refresh/reload saat upload
-    e.preventDefault();
-    // File upload ditangani di handleFileChange, jangan duplikasi di sini
   };
 
   const handleRemoveClick = (year: number, mediaId: string) => {
@@ -71,16 +70,14 @@ export function YearSlider({
 
   return (
     <div className="relative w-full max-w-4xl mx-auto">
-      <form onSubmit={handleFileFormSubmit} className="contents">
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*,video/*"
-          onChange={handleFileChange}
-          className="hidden"
-          capture="environment"
-        />
-      </form>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*,video/*"
+        onChange={handleFileChange}
+        className="hidden"
+        capture="environment"
+      />
 
       {/* Navigation Buttons */}
       <button

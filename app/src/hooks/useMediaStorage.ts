@@ -50,6 +50,7 @@ export function useMediaStorage() {
   // Fetch memories dari Supabase
   const fetchFromSupabase = useCallback(async () => {
     try {
+      console.log('🔍 Fetching from Supabase...');
       setIsLoading(true);
       const { data, error } = await supabase
         .from('Memories')
@@ -63,6 +64,7 @@ export function useMediaStorage() {
       }
 
       if (!data) {
+        console.log('✅ No data returned from Supabase');
         setYearData(YEARS.map(year => ({ year, media: [] })));
         return;
       }
@@ -125,8 +127,11 @@ export function useMediaStorage() {
     }));
 
     // Upload to Cloudinary in background
+    console.log('📤 Uploading to Cloudinary...', file.name, 'Size:', file.size, 'Type:', file.type);
     uploadToCloudinary(file)
       .then(async ({ url }) => {
+        console.log('✅ Cloudinary upload success:', url);
+        
         // Update state dengan URL yang sebenarnya dari Cloudinary
         setYearData(prev => prev.map(yd => {
           if (yd.year === year) {
@@ -146,23 +151,20 @@ export function useMediaStorage() {
         // App.tsx akan menangani fetchFromSupabase() setelah insert berhasil
         if (onUploadComplete) {
           try {
+            console.log('💾 Calling onUploadComplete callback to save to Supabase...');
             await Promise.resolve(onUploadComplete(url));
-            console.log('✅ Tersimpan ke Supabase');
           } catch (error) {
-            console.error('Error saving to Supabase:', error);
+            console.error('Error in onUploadComplete:', error);
           }
         }
-        // Note: fetchFromSupabase() dipanggil di App.tsx handleAddMedia untuk menghindari race condition
-
+        
         setCloudStatus('success');
-        console.log('✅ Upload ke Cloudinary berhasil:', url);
-        // Set idle status setelah 2 detik
+        console.log('⏱️ Setting cloud status to success');
         setTimeout(() => setCloudStatus('idle'), 2000);
       })
       .catch(error => {
-        console.error('Error uploading to Cloudinary:', error);
+        console.error('❌ Error uploading to Cloudinary:', error);
         setCloudStatus('error');
-        // Set idle status setelah 3 detik saat error
         setTimeout(() => setCloudStatus('idle'), 3000);
       });
 

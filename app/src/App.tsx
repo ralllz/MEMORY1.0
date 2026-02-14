@@ -28,11 +28,13 @@ function App() {
   }, [login]);
 
   const handleAddMedia = useCallback((year: number, file: File) => {
+    console.log('🚀 Starting upload for year:', year, 'File:', file.name);
     // Tambah ke Cloudinary via useMediaStorage dengan callback onUploadComplete untuk save ke Supabase
     addMedia(year, file, async (cloudinaryUrl: string) => {
       // Ketika upload ke Cloudinary selesai, simpan ke Supabase
       setSavingToSupabase(true);
       try {
+        console.log('☁️ Cloudinary upload complete, saving to Supabase...');
         // Format yang benar sesuai tabel Memories
         const judulInput = `Kenangan ${year} - ${file.name}`;
         const linkDariCloudinary = cloudinaryUrl;
@@ -55,11 +57,13 @@ function App() {
         console.log('✅ Tersimpan ke Supabase:', data?.[0]?.id);
         
         // Tunggu sedikit untuk memastikan Supabase transaction fully committed
-        await new Promise(resolve => setTimeout(resolve, 300));
+        console.log('⏳ Waiting for transaction to commit...');
+        await new Promise(resolve => setTimeout(resolve, 500));
         
         // Explicitly refresh data dari Supabase untuk memastikan UI ter-update
+        console.log('🔄 Fetching updated data from Supabase...');
         await fetchFromSupabase();
-        console.log('✅ Data ter-update di UI setelah Supabase insert');
+        console.log('✅ Data ter-update di UI setelah Supabase insert - TANPA RELOAD!');
       } catch (err) {
         console.error('❌ Error in saveToSupabase:', err);
       } finally {
