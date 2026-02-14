@@ -55,28 +55,30 @@ function App() {
       // Ketika upload ke Cloudinary selesai, simpan ke Supabase
       setSavingToSupabase(true);
       try {
+        // Format yang benar sesuai tabel Memories
+        const judulInput = `Kenangan ${year} - ${file.name}`;
+        const linkDariCloudinary = cloudinaryUrl;
+
         const { data, error } = await supabase
           .from('Memories')
           .insert([
             {
-              title: `Kenangan ${year} - ${file.name}`,
-              image_url: cloudinaryUrl,
-              year: year,
-              file_name: file.name,
-              file_type: file.type,
+              title: judulInput,
+              image_url: linkDariCloudinary,
             }
           ])
           .select();
 
         if (error) {
-          console.error('Error saving to Supabase:', error.message);
-        } else {
-          console.log('✅ Tersimpan ke Supabase:', data?.[0]?.id);
-          // Reload memories setelah save
-          await loadSupabaseMemories();
+          console.error('❌ Error saving to Supabase:', error.message);
+          return;
         }
+
+        console.log('✅ Tersimpan ke Supabase:', data?.[0]?.id);
+        // Reload memories setelah save
+        await loadSupabaseMemories();
       } catch (err) {
-        console.error('Error in saveToSupabase:', err);
+        console.error('❌ Error in saveToSupabase:', err);
       } finally {
         setSavingToSupabase(false);
       }
