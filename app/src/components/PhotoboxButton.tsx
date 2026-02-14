@@ -42,14 +42,17 @@ export function PhotoboxButton({ onSaveComplete }: PhotoboxButtonProps) {
 
   // Handle camera capture
   const handleCapture = useCallback((dataUrl: string) => {
-    console.log('✅ [PhotoboxButton] Photo captured');
+    console.log('✅ [PhotoboxButton] Photo captured, size:', dataUrl.length);
     setSourceImage(dataUrl);
     setShowCamera(false);
     
-    // Small delay to ensure clean transition
-    setTimeout(() => {
+    // Wait a bit for camera to properly close before opening editor
+    const timer = setTimeout(() => {
+      console.log('📸 [PhotoboxButton] Opening editor...');
       setShowEditor(true);
-    }, 100);
+    }, 150);
+
+    return () => clearTimeout(timer);
   }, []);
 
   // Handle save from editor

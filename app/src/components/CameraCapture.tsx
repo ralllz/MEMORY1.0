@@ -19,6 +19,9 @@ export function CameraCapture({ onCapture, onClose }: CameraCaptureProps) {
 
   useEffect(() => {
     // Request camera permission with optimized constraints
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    let isMounted = true;
+
     const setupCamera = async () => {
       try {
         const startTime = performance.now();
@@ -44,31 +47,40 @@ export function CameraCapture({ onCapture, onClose }: CameraCaptureProps) {
           throw new Error('No camera constraint worked - no camera available');
         }
 
-        if (videoRef.current) {
+        if (isMounted && videoRef.current) {
           videoRef.current.srcObject = stream;
           streamRef.current = stream;
           
-          // Wait for video to be ready before setting permission
-          if (videoRef.current.readyState === HTMLMediaElement.HAVE_FUTURE_DATA || videoRef.current.readyState === HTMLMediaElement.HAVE_ENOUGH_DATA) {
-            setVideoReady(true);
-            setHasPermission(true);
-          }
+          // Set permission immediately - video will show as soon as it's ready
+          setHasPermission(true);
           
           const loadTimeMs = performance.now() - startTime;
           setCameraLoadTime(loadTimeMs);
           console.log(`✅ [Camera] Permission granted, stream active (${loadTimeMs.toFixed(0)}ms)`);
+          
+          // Fallback: if video doesn't load metadata, mark ready after timeout
+          timeoutId = setTimeout(() => {
+            if (isMounted) {
+              console.log('⏱️ [Camera] Fallback: marking video as ready after timeout');
+              setVideoReady(true);
+            }
+          }, 2000);
         }
       } catch (err) {
-        console.error('❌ [Camera] Permission denied or error:', err);
-        const message = err instanceof Error ? err.message : 'Failed to access camera';
-        setError(message);
-        setHasPermission(false);
+        if (isMounted) {
+          console.error('❌ [Camera] Permission denied or error:', err);
+          const message = err instanceof Error ? err.message : 'Failed to access camera';
+          setError(message);
+          setHasPermission(false);
+        }
       }
     };
 
     setupCamera();
 
     return () => {
+      isMounted = false;
+      
       // Cleanup: stop video stream properly
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(track => {
@@ -79,6 +91,9 @@ export function CameraCapture({ onCapture, onClose }: CameraCaptureProps) {
       }
       if (videoRef.current) {
         videoRef.current.srcObject = null;
+      }
+      if (timeoutId) {
+        clearTimeout(timeoutId);
       }
     };
   }, []);
@@ -125,7 +140,13 @@ export function CameraCapture({ onCapture, onClose }: CameraCaptureProps) {
 
   // Handle video loaded event
   const handleVideoLoaded = () => {
-    console.log('✅ [Camera] Video stream ready to capture');
+    console.log('✅ [Camera] Video stream ready to capture (onLoadedMetadata)');
+    setVideoReady(true);
+  };
+
+  // Handle when video can play
+  const handleVideoCanPlay = () => {
+    console.log('✅ [Camera] Video can play (onCanPlay)');
     setVideoReady(true);
   };
 
@@ -185,6 +206,7 @@ export function CameraCapture({ onCapture, onClose }: CameraCaptureProps) {
                   playsInline
                   muted
                   onLoadedMetadata={handleVideoLoaded}
+                  onCanPlay={handleVideoCanPlay}
                   className="w-full aspect-video object-cover"
                   style={{
                     transform: 'scaleX(-1)',  // Mirror for selfie-like experience
