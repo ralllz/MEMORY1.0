@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { Heart, LogOut, Lock, Unlock } from 'lucide-react';
+import { Heart, LogOut, Lock, Unlock, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { LoginModal } from '@/components/LoginModal';
 import { YearSlider } from '@/components/YearSlider';
